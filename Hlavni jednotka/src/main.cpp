@@ -32,7 +32,7 @@ void PainlessMesh()
 
   if (Serial2.available())
   {
-    // Stream& input;
+    // Stream & input;
 
     StaticJsonDocument<0> filter;
     filter.set(true);
