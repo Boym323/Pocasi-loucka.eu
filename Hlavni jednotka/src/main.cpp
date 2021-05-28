@@ -1,8 +1,20 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncElegantOTA.h>
+
+#include <WebSerial.h> // serial2web
+
 #include <ArduinoJson.h>
 
 #define RXD2 16
 #define TXD2 17
 
+const char *ssid = "Martin - iPhone";
+const char *password = "martin323";
+
+AsyncWebServer server(80);
 //------------------------------------------
 //-----------Proměnné-----------------------
 int Teplota;
@@ -17,13 +29,34 @@ void setup()
   // Initialize "debug" serial port
   // The data rate must be much higher than the "link" serial port
   Serial.begin(115200);
-  while (!Serial)
-    continue;
-
+  //-----------------Bridge port
   Serial2.begin(4800, SERIAL_8N1, RXD2, TXD2);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  Serial.println("");
 
-  // Initialize the "link" serial port
-  // Use the lowest possible data rate to reduce error ratio
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  //-----------------async web
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "Hi! I am ESP32.");
+  });
+
+  AsyncElegantOTA.begin(&server); // Start ElegantOTA
+
+  WebSerial.begin(&server); // serial2web
+  server.begin();
+  Serial.println("HTTP server started");
 }
 
 void PainlessMesh()
@@ -77,8 +110,9 @@ void PainlessMesh()
   }
 }
 
-
 void loop()
 {
+  AsyncElegantOTA.loop(); // OTA
+  //WebSerial.println("Test");
   void PainlessMesh();
 }

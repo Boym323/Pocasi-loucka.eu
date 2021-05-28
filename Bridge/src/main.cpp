@@ -48,6 +48,8 @@ void setup()
     Serial.printf("Dropped Connection %u\n", nodeId);
   });
 
+  mesh.initOTAReceive("bridge");
+
   // Add the task to the your scheduler
   userScheduler.addTask(logServerTask);
   logServerTask.enable();
