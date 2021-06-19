@@ -11,8 +11,8 @@
 #define RXD2 16
 #define TXD2 17
 
-const char *ssid = "Martin - iPhone";
-const char *password = "martin323";
+const char *ssid = "Home";
+const char *password = "1234567890";
 
 AsyncWebServer server(80);
 //------------------------------------------
