@@ -4,8 +4,6 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h>
 
-#include <WebSerial.h> // serial2web
-
 #include <ArduinoJson.h>
 
 #define RXD2 16
@@ -13,6 +11,7 @@
 
 const char *ssid = "Home";
 const char *password = "1234567890";
+String hostname = "pocasi-loucka.eu";
 
 AsyncWebServer server(80);
 //------------------------------------------
@@ -24,6 +23,9 @@ int Slunce;
 int Vitr;
 int Srazky;
 
+unsigned long previousMillis = 0;
+unsigned long interval = 30000;
+
 void setup()
 {
   // Initialize "debug" serial port
@@ -31,7 +33,9 @@ void setup()
   Serial.begin(115200);
   //-----------------Bridge port
   Serial2.begin(4800, SERIAL_8N1, RXD2, TXD2);
+
   WiFi.mode(WIFI_STA);
+  WiFi.setHostname(hostname.c_str());
   WiFi.begin(ssid, password);
   Serial.println("");
 
@@ -47,14 +51,12 @@ void setup()
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  //-----------------async web
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", "Hi! I am ESP32.");
-  });
+  //-----------------async web--------------- není nutno použít
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(200, "text/plain", "Ahoj! Tady bude jednou webové rozhraní s přehledem všech měřených hodnot... :-)"); });
 
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
 
-  WebSerial.begin(&server); // serial2web
   server.begin();
   Serial.println("HTTP server started");
 }
@@ -109,10 +111,20 @@ void PainlessMesh()
     }
   }
 }
-
+void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 30s snaží znova připojit
+{
+  // if WiFi is down, try reconnecting
+  if ((WiFi.status() != WL_CONNECTED) && (millis() - previousMillis >= interval))
+  {
+    Serial.println("Reconnecting to WiFi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    previousMillis = millis();
+  }
+}
 void loop()
 {
   AsyncElegantOTA.loop(); // OTA
-  //WebSerial.println("Test");
-  void PainlessMesh();
+  PainlessMesh();
+  WiFi_reconnect();
 }
