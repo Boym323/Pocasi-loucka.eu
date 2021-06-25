@@ -6,6 +6,84 @@
 
 #include <ArduinoJson.h>
 
+#include <OneWire.h>
+#include <DallasTemperature.h>
+const int oneWireBus = 0;
+OneWire oneWire(oneWireBus);
+DallasTemperature sensors(&oneWire);
+// Variables to store temperature values
+String temperatureC = "";
+
+String readDSTemperatureC() {
+  // Call sensors.requestTemperatures() to issue a global temperature and Requests to all devices on the bus
+  sensors.requestTemperatures(); 
+  float tempC = sensors.getTempCByIndex(0);
+
+  if(tempC == -127.00) {
+    Serial.println("Failed to read from DS18B20 sensor");
+    return "--";
+  } else {
+    Serial.print("Temperature Celsius: ");
+    Serial.println(tempC); 
+  }
+  return String(tempC);
+}
+
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+  <style>
+    html {
+     font-family: Arial;
+     display: inline-block;
+     margin: 0px auto;
+     text-align: center;
+    }
+    h2 { font-size: 3.0rem; }
+    p { font-size: 3.0rem; }
+    .units { font-size: 1.2rem; }
+    .ds-labels{
+      font-size: 1.5rem;
+      vertical-align:middle;
+      padding-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <h2>ESP DS18B20 Server</h2>
+  <p>
+    <i class="fas fa-thermometer-half" style="color:#059e8a;"></i> 
+    <span class="ds-labels">Temperature Celsius</span> 
+    <span id="temperaturec">%TEMPERATUREC%</span>
+    <sup class="units">&deg;C</sup>
+  </p>
+</body>
+<script>
+setInterval(function ( ) {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      document.getElementById("temperaturec").innerHTML = this.responseText;
+    }
+  };
+  xhttp.open("GET", "/temperaturec", true);
+  xhttp.send();
+}, 10000) ;
+
+</script>
+</html>)rawliteral";
+
+// Replaces placeholder with DS18B20 values
+String processor(const String& var){
+  //Serial.println(var);
+  if(var == "TEMPERATUREC"){
+    return temperatureC;
+  }
+  return String();
+}
+
 #define RXD2 16
 #define TXD2 17
 
@@ -22,6 +100,7 @@ int Tlak;
 int Slunce;
 int Vitr;
 int Srazky;
+
 
 unsigned long previousMillis = 0;
 unsigned long interval = 30000;
@@ -51,17 +130,19 @@ void setup()
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  //-----------------async web--------------- není nutno použít
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(200, "text/plain", "Ahoj! Tady bude jednou webové rozhraní s přehledem všech měřených hodnot... :-)"); });
-
+   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/html", index_html, processor);
+  });
+  server.on("/temperaturec", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/plain", temperatureC.c_str());
+  });
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
 
   server.begin();
   Serial.println("HTTP server started");
 }
 
-void PainlessMesh()
+void PrijemDat()
 {
   // Kontrola, zda přicházejí data
 
@@ -122,9 +203,11 @@ void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 3
     previousMillis = millis();
   }
 }
+
 void loop()
 {
+  temperatureC = readDSTemperatureC();
   AsyncElegantOTA.loop(); // OTA
-  PainlessMesh();
+  PrijemDat();
   WiFi_reconnect();
 }
