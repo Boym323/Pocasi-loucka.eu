@@ -12,17 +12,11 @@
 String hostname = "pocasi-loucka.eu";
 
 AsyncWebServer server(80);
-//------------------------------------------
 //-----------Proměnné-----------------------
-int Teplota;
-int Vlhkost;
-int Tlak;
-int Slunce;
-int Vitr;
-int Srazky;
-
-unsigned long previousMillis = 0;
-unsigned long interval = 30000;
+const char *RadiacniStit_kompilace;
+float RadiacniStit_Teplota_DS;
+float RadiacniStit_Teplota_Si;
+int RadiacniStit_vlhkost;
 
 void setup()
 {
@@ -37,12 +31,12 @@ void setup()
   WiFi.begin(ssid, password);
   Serial.println("");
 
-  // Wait for connection
+  /* // Wait for connection
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
     Serial.print(".");
-  }
+  }*/
   Serial.println("");
   Serial.print("Connected to ");
   Serial.println(ssid);
@@ -80,37 +74,20 @@ void PrijemDat()
       Serial.println(error.f_str());
       return;
     }
-    if (doc.containsKey("DeskaESP32"))
+    if (doc.containsKey("RadiacniStit"))
 
     {
-      Slunce = doc["Slunce"]; // 64
-      Srazky = doc["Srazky"]; // 167
-      Vitr = doc["Vitr"];     // 91
-      Serial.print("Slunce ");
-      Serial.println(Slunce);
-      Serial.print("Srazky ");
-      Serial.println(Srazky);
-      Serial.print("Vitr ");
-      Serial.println(Vitr);
-    }
-
-    if (doc.containsKey("Lolin"))
-
-    {
-      Teplota = doc["Teplota"]; // 64
-      Vlhkost = doc["Vlhkost"]; // 167
-      Tlak = doc["Tlak"];       // 91
-      Serial.print("Teplota ");
-      Serial.println(Teplota);
-      Serial.print("Vlhkost ");
-      Serial.println(Vlhkost);
-      Serial.print("Tlak ");
-      Serial.println(Tlak);
+      RadiacniStit_kompilace = doc["Kompilace"];
+      RadiacniStit_Teplota_DS = doc["Temp_DS18B20"];
+      RadiacniStit_Teplota_Si = doc["Temp_Si7021"];
+      RadiacniStit_vlhkost = doc["Hum_Si7021"];
     }
   }
 }
 void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 30s snaží znova připojit
 {
+  unsigned long previousMillis;
+  unsigned long interval = 30000;
   // if WiFi is down, try reconnecting
   if ((WiFi.status() != WL_CONNECTED) && (millis() - previousMillis >= interval))
   {
