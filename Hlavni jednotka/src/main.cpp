@@ -14,6 +14,7 @@ String hostname = "pocasi-loucka.eu";
 AsyncWebServer server(80);
 //-----------Proměnné-----------------------
 const char *RadiacniStit_kompilace;
+const char *Strecha_kompilace;
 float RadiacniStit_Teplota_DS;
 float RadiacniStit_Teplota_Si;
 int RadiacniStit_vlhkost;
@@ -81,6 +82,11 @@ void PrijemDat()
       RadiacniStit_Teplota_DS = doc["Temp_DS18B20"];
       RadiacniStit_Teplota_Si = doc["Temp_Si7021"];
       RadiacniStit_vlhkost = doc["Hum_Si7021"];
+    }
+    if (doc.containsKey("Strecha"))
+
+    {
+      Strecha_kompilace = doc["Kompilace"];
     }
   }
 }
