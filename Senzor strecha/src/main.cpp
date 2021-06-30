@@ -17,7 +17,7 @@ volatile unsigned int raincnt = 0;
 volatile unsigned long lastRainClick;
 volatile unsigned long lastWindClick;
 float windspeed;
-float r;
+float srazky;
 float napetiWindDir;
 String windDir;
 
@@ -59,7 +59,7 @@ Task nacteniDatCidla(casOdeslani * 1000, TASK_FOREVER, []()
                        windspeed = ((windcnt / casOdeslani) * 2.4) * (1 / 3.6);
                        windcnt = 0;
                        //Calculate Rain
-                       r = raincnt * 0.2794;
+                       srazky = raincnt * 0.2794;
                        raincnt = 0;
                        //Calculate win direction
                        napetiWindDir = readChannel(ADS1115_COMP_0_GND);
@@ -105,9 +105,9 @@ Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
                      JsonObject msg = jsonBuffer.to<JsonObject>();
                      msg["Strecha"] = "Strecha";
                      msg["Kompilace"] = __DATE__ " " __TIME__;
-                     msg["topic"] = "sensor";
-                     msg["value"] = random(0, 180);
-
+                     msg["WinSpeed"] = windspeed;
+                     msg["Rain"] = srazky;
+                     msg["WinDir"] = windDir;
                      String str;
                      serializeJson(msg, str);
 
