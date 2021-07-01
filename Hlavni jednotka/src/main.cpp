@@ -2,22 +2,37 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>
+#include <AsyncElegantOTA.h> // OTA
 #include <ArduinoJson.h>
-#include "credentials.h"
+#include "credentials.h" //prihlasováky + nastavení
+
+#include <PubSubClient.h> //MQTT
+WiFiClient espClient;
+PubSubClient client(espClient);
+int CasDat = 30; // cetnost reportu dat skrze MQTT 
+unsigned long PosledniOdeslaniDat;
 
 #define RXD2 16
 #define TXD2 17
 
 String hostname = "pocasi-loucka.eu";
 
+//----------WiFi - reconnect-----------
+unsigned long previousMillis = 0;
+unsigned long interval = 30000;
+
 AsyncWebServer server(80);
+
 //-----------Proměnné-----------------------
 const char *RadiacniStit_kompilace;
-const char *Strecha_kompilace;
 float RadiacniStit_Teplota_DS;
 float RadiacniStit_Teplota_Si;
 int RadiacniStit_vlhkost;
+
+const char *Strecha_kompilace;
+float Strecha_winspeed;
+int Strecha_srazky;
+const char *Strecha_windir;
 
 void setup()
 {
@@ -87,13 +102,15 @@ void PrijemDat()
 
     {
       Strecha_kompilace = doc["Kompilace"];
+      Strecha_winspeed = doc["WinSpeed"];
+      Strecha_srazky = doc["Rain"];
+      Strecha_windir = doc["WinDir"];
     }
   }
 }
 void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 30s snaží znova připojit
 {
-  unsigned long previousMillis;
-  unsigned long interval = 30000;
+
   // if WiFi is down, try reconnecting
   if ((WiFi.status() != WL_CONNECTED) && (millis() - previousMillis >= interval))
   {
@@ -104,9 +121,42 @@ void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 3
   }
 }
 
+void mqtt()
+{
+  client.setServer(mqttServer, mqttPort);
+  client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
+  DynamicJsonDocument JSONencoder(1024);
+  char buffer[256];
+  JSONencoder["outTemp"] = RadiacniStit_Teplota_Si;
+  JSONencoder["outHumidity"] = RadiacniStit_vlhkost;
+  JSONencoder["windSpeed"] = Strecha_winspeed;
+  JSONencoder["rain"] = Strecha_srazky;
+  JSONencoder["windDir"] = Strecha_windir;
+
+  long rssi = WiFi.RSSI();
+  JSONencoder["signal1"] = rssi;
+  serializeJson(JSONencoder, buffer);
+
+  Serial.println("Sending message to MQTT topic..");
+  Serial.println(buffer);
+
+  if (client.publish("meteostanice/pocasi-loucka.eu", buffer) == true)
+  {
+    Serial.println("Success sending message");
+  }
+  else
+  {
+    Serial.println("Error sending message");
+  }
+}
+
 void loop()
 {
   AsyncElegantOTA.loop(); // OTA
   PrijemDat();
+  if (millis() > PosledniOdeslaniDat + CasDat * 1000)
+  {
+    mqtt();
+  }
   WiFi_reconnect();
 }
