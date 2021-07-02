@@ -28,11 +28,14 @@ const char *RadiacniStit_kompilace;
 float RadiacniStit_Teplota_DS;
 float RadiacniStit_Teplota_Si;
 int RadiacniStit_vlhkost;
+float RadiacniStit_tlak;
+float RadiacniStit_TeplotaBMP180;
 
 const char *Strecha_kompilace;
 float Strecha_winspeed;
 int Strecha_srazky;
 const char *Strecha_windir;
+
 
 void setup()
 {
@@ -97,6 +100,8 @@ void PrijemDat()
       RadiacniStit_Teplota_DS = doc["Temp_DS18B20"];
       RadiacniStit_Teplota_Si = doc["Temp_Si7021"];
       RadiacniStit_vlhkost = doc["Hum_Si7021"];
+      RadiacniStit_tlak = doc["barometer"];
+      RadiacniStit_TeplotaBMP180 = doc["Temp_BMP180"];
     }
     if (doc.containsKey("Strecha"))
 

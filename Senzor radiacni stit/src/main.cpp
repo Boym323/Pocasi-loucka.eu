@@ -5,6 +5,12 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
+#include <SFE_BMP180.h>
+SFE_BMP180 pressure;
+#define ALTITUDE 425 // nadmořská výška stanice
+Adafruit_Si7021 sensor = Adafruit_Si7021();
+double T, P, p0, a; // BMP180 T - teplota. P - tlak, P0 - tlak u hladiny moře
+
 #define ONE_WIRE_BUS 13
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
@@ -30,12 +36,21 @@ Task nacteniDatCidla(casOdeslani * 1000, TASK_FOREVER, []()
                      {
                        humSi7021 = Si7021.readHumidity();
                        tempSi7021 = Si7021.readTemperature();
+
                        DeviceAddress Teplota2m = {0x28, 0xFF, 0x64, 0x1D, 0xF9, 0x86, 0x3C, 0x78};
                        sensors.setResolution(Teplota2m, 11);
                        //Serial.print(sensors.getResolution(Teplota2m), DEC);
-
                        sensors.requestTemperatures();
                        tempDS18B20 = sensors.getTempC(Teplota2m);
+
+                       char status;
+                       status = pressure.startTemperature();
+                       delay(status);
+                       status = pressure.getTemperature(T);
+                       status = pressure.startPressure(3);
+                       delay(status);
+                       status = pressure.getPressure(P, T);
+                       p0 = pressure.sealevel(P, ALTITUDE); // we're at 1655 meters (Boulder, CO)
                      });
 // Send message to the logServer every 10 seconds
 Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
@@ -43,10 +58,12 @@ Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
                      DynamicJsonDocument jsonBuffer(1024);
                      JsonObject msg = jsonBuffer.to<JsonObject>();
                      msg["RadiacniStit"] = "RadiacniStit";
-                     msg["Kompilace"] =  __DATE__ " " __TIME__;
+                     msg["Kompilace"] = __DATE__ " " __TIME__;
                      msg["Temp_DS18B20"] = tempDS18B20;
                      msg["Temp_Si7021"] = tempSi7021;
                      msg["Hum_Si7021"] = humSi7021;
+                     msg["Temp_BMP180"] = T;
+                     msg["barometer"] = p0;
                      String str;
                      serializeJson(msg, str);
 
@@ -65,6 +82,8 @@ void setup()
 {
   Si7021.begin();
   sensors.begin();
+  Wire.begin();
+  pressure.begin(); //BMP180
 
   Serial.begin(115200);
 
