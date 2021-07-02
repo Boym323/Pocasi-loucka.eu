@@ -9,13 +9,26 @@
 #include <PubSubClient.h> //MQTT
 WiFiClient espClient;
 PubSubClient client(espClient);
-int CasDat = 30; // cetnost reportu dat skrze MQTT 
+int CasDat = 30; // cetnost reportu dat skrze MQTT
 unsigned long PosledniOdeslaniDat;
 
 #define RXD2 16
 #define TXD2 17
+//-----------------ina219------------------------
+#include <Wire.h>
+#include <Adafruit_INA219.h>
 
-String hostname = "pocasi-loucka.eu";
+// definování adresy senzoru
+#define ADDR 0x40
+// inicializace senzoru s nastavenou adresou z knihovny
+Adafruit_INA219 ina219(ADDR);
+
+float napetiVstup = 0;
+float napetiBocnik = 0;
+float napetiZatez = 0;
+float proud = 0;
+//------------------------------------
+String hostname = "pocasi-loucka.eu"; // hostname na wifi
 
 //----------WiFi - reconnect-----------
 unsigned long previousMillis = 0;
@@ -36,9 +49,16 @@ float Strecha_winspeed;
 int Strecha_srazky;
 const char *Strecha_windir;
 
-
 void setup()
 {
+  ina219.begin();
+  // nastavení kalibrace, k dispozici jsou 3 režimy
+  // režim 32V a 2A má největší rozsahy, ale nejmenší přesnost
+  //ina219.setCalibration_32V_2A();
+  // režim 32V a 1A má lepší rozlišení průchozího proudu
+  ina219.setCalibration_32V_1A();
+  // režim 16V a 400mA má nejlepší rozlišení proudu i napětí
+  //ina219.setCalibration_16V_400mA();
   // Initialize "debug" serial port
   // The data rate must be much higher than the "link" serial port
   Serial.begin(115200);
@@ -128,40 +148,44 @@ void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 3
 
 void mqtt()
 {
-  client.setServer(mqttServer, mqttPort);
-  client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
-  DynamicJsonDocument JSONencoder(1024);
-  char buffer[256];
-  JSONencoder["outTemp"] = RadiacniStit_Teplota_Si;
-  JSONencoder["outHumidity"] = RadiacniStit_vlhkost;
-  JSONencoder["windSpeed"] = Strecha_winspeed;
-  JSONencoder["rain"] = Strecha_srazky;
-  JSONencoder["windDir"] = Strecha_windir;
-
-  long rssi = WiFi.RSSI();
-  JSONencoder["signal1"] = rssi;
-  serializeJson(JSONencoder, buffer);
-
-  Serial.println("Sending message to MQTT topic..");
-  Serial.println(buffer);
-
-  if (client.publish("meteostanice/pocasi-loucka.eu", buffer) == true)
-  {
-    Serial.println("Success sending message");
-  }
-  else
-  {
-    Serial.println("Error sending message");
-  }
-}
-
-void loop()
-{
-  AsyncElegantOTA.loop(); // OTA
-  PrijemDat();
   if (millis() > PosledniOdeslaniDat + CasDat * 1000)
   {
-    mqtt();
+    client.setServer(mqttServer, mqttPort);
+    client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
+    DynamicJsonDocument JSONencoder(1024);
+    char buffer[256];
+    JSONencoder["outTemp"] = RadiacniStit_Teplota_Si;
+    JSONencoder["outHumidity"] = RadiacniStit_vlhkost;
+    JSONencoder["windSpeed"] = Strecha_winspeed;
+    JSONencoder["rain"] = Strecha_srazky;
+    JSONencoder["windDir"] = Strecha_windir;
+
+    JSONencoder["napetiVstup"] = napetiVstup;
+    JSONencoder["proud"] = proud;
+
+    long rssi = WiFi.RSSI();
+    JSONencoder["signal1"] = rssi;
+    serializeJson(JSONencoder, buffer);
+
+    Serial.println("Sending message to MQTT topic..");
+    Serial.println(buffer);
+
+    if (client.publish("meteostanice/pocasi-loucka.eu", buffer) == true)
+    {
+      Serial.println("Success sending message");
+    }
+    else
+    {
+      Serial.println("Error sending message");
+    }
+    PosledniOdeslaniDat = millis();
   }
+}
+void loop()
+{
+  napetiVstup = ina219.getBusVoltage_V(); /// INA219
+  proud = ina219.getPower_mW(); // spotřeba v mW
+  PrijemDat();
+  mqtt();
   WiFi_reconnect();
 }
