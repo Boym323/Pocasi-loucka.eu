@@ -4,6 +4,8 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h> // OTA
 #include <ArduinoJson.h>
+#include <WebSerial.h> //webserial
+
 #include "credentials.h" //prihlasováky + nastavení
 
 #include <PubSubClient.h> //MQTT
@@ -27,9 +29,33 @@ float napetiVstup = 0;
 float napetiBocnik = 0;
 float napetiZatez = 0;
 float proud = 0;
+float prikon = 0;
 //------------------------------------
 String hostname = "pocasi-loucka.eu"; // hostname na wifi
+//-------------------web---------------
+const char *html = "<p>Napeti: %PLACEHOLDER_VOLTAGE% V</p><p>Proud: %PLACEHOLDER_CURRENT% mA</p><p>Spotreba: %PLACEHOLDER_WATT% mW</p>";
 
+String processor(const String &var)
+{
+
+  Serial.println(var);
+
+  if (var == "PLACEHOLDER_VOLTAGE")
+  {
+    return String(napetiVstup);
+  }
+
+  else if (var == "PLACEHOLDER_CURRENT")
+  {
+    return String(proud);
+  }
+  else if (var == "PLACEHOLDER_WATT")
+  {
+    return String(prikon);
+  }
+
+  return String();
+}
 //----------WiFi - reconnect-----------
 unsigned long previousMillis = 0;
 unsigned long interval = 30000;
@@ -84,12 +110,15 @@ void setup()
 
   //-----------------async web--------------- není nutno použít
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(200, "text/plain", "Ahoj! Tady bude jednou webové rozhraní s přehledem všech měřených hodnot... :-)"); });
+            { request->send_P(200, "text/html", html, processor); });
 
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
 
   server.begin();
   Serial.println("HTTP server started");
+
+  WebSerial.begin(&server);
+  server.begin();
 }
 
 void PrijemDat()
@@ -104,6 +133,10 @@ void PrijemDat()
     filter.set(true);
 
     StaticJsonDocument<512> doc;
+    
+    String str; 
+    str = Serial2.readStringUntil('\n'); //čtení z webserial dokud není konec řádku 
+    WebSerial.println(str); // výpis proměnné na web a nový řádek
 
     DeserializationError error = deserializeJson(doc, Serial2, DeserializationOption::Filter(filter));
 
@@ -162,6 +195,7 @@ void mqtt()
 
     JSONencoder["napetiVstup"] = napetiVstup;
     JSONencoder["proud"] = proud;
+    JSONencoder["prikon"] = prikon;
 
     long rssi = WiFi.RSSI();
     JSONencoder["signal1"] = rssi;
@@ -184,7 +218,8 @@ void mqtt()
 void loop()
 {
   napetiVstup = ina219.getBusVoltage_V(); /// INA219
-  proud = ina219.getPower_mW(); // spotřeba v mW
+  prikon = ina219.getPower_mW();          // spotřeba v mW
+  proud = ina219.getCurrent_mA();
   PrijemDat();
   mqtt();
   WiFi_reconnect();

@@ -32,7 +32,7 @@ void setup()
   delay(1000);
 
 
-  if (!SD.begin(15)) 
+  if (!SD.begin(4)) 
     {
     rebootEspWithReason("Could not mount SD card, restarting");
     }
