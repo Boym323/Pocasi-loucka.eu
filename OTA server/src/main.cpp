@@ -41,8 +41,6 @@ void setup()
   while (true)
   {
     File entry = dir.openNextFile();
-    Serial.print("Soubor na karte: ");
-    Serial.println(entry);
     if (!entry)
 
     {
@@ -58,16 +56,14 @@ void setup()
       if (name.length() > 1 && name.indexOf('_') != -1 &&
           name.indexOf('_') != name.lastIndexOf('_') &&
           name.indexOf('.') != -1)
-        Serial.print("TSTRING1: ");
-      Serial.println(name);
+
 
       {
         TSTRING firmware = name.substring(0, name.indexOf('_'));
         TSTRING hardware = name.substring(name.indexOf('_') + 1, name.lastIndexOf('_'));
         TSTRING role = name.substring(name.lastIndexOf('_') + 1, name.indexOf('.'));
         TSTRING extension = name.substring(name.indexOf('.') + 1, name.length());
-        Serial.print("TSTRING2");
-        Serial.println(firmware + hardware + role + extension);
+
         if (firmware.equals("firmware") && (hardware.equals("ESP8266") || hardware.equals("ESP32")) && extension.equals("bin"))
         {
           Serial.printf("OTA FIRMWARE FOUND (%s), NOW BROADCASTING\n", entry.name());
