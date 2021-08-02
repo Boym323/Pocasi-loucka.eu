@@ -25,8 +25,10 @@ IRAM_ATTR void WindSpeed()
 {
   if ((millis() - lastWindClick > 16))
   { // debounce of sensor signal
+    cli();
     windcnt++;
     lastWindClick = millis();
+    sei();
   }
 }
 
@@ -131,7 +133,7 @@ void setup()
   adc.setCompareChannels(ADS1115_COMP_0_GND);
   adc.setMeasureMode(ADS1115_SINGLE);
   pinMode(windSpeedPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(windSpeedPin), WindSpeed, FALLING);
+  attachInterrupt(digitalPinToInterrupt(windSpeedPin), WindSpeed, RISING);
   pinMode(rainPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(rainPin), Rain, RISING);
 
