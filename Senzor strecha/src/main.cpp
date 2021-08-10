@@ -58,10 +58,10 @@ float readChannel(ADS1115_MUX channel)
 Task nacteniDatCidla(casOdeslani * 1000, TASK_FOREVER, []()
                      {
                        //Calculate Wind Speed (klicks/interval * 2,4 kmh)
-                       windspeed = ((windcnt / casOdeslani) * 2.4) * (1 / 3.6);
+                       windspeed = ((windcnt / casOdeslani) * 2.4);
                        windcnt = 0;
                        //Calculate Rain
-                       srazky = raincnt * 0.2794;
+                       srazky = raincnt * (0.2794 / 10);
                        raincnt = 0;
                        //Calculate win direction
                        napetiWindDir = readChannel(ADS1115_COMP_0_GND);
@@ -133,9 +133,9 @@ void setup()
   adc.setCompareChannels(ADS1115_COMP_0_GND);
   adc.setMeasureMode(ADS1115_SINGLE);
   pinMode(windSpeedPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(windSpeedPin), WindSpeed, RISING);
+  attachInterrupt(digitalPinToInterrupt(windSpeedPin), WindSpeed, FALLING);
   pinMode(rainPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(rainPin), Rain, RISING);
+  attachInterrupt(digitalPinToInterrupt(rainPin), Rain, FALLING);
 
   mesh.init(MESH_PREFIX, MESH_PASSWORD, &userScheduler, MESH_PORT, WIFI_AP_STA, 6);
   mesh.onReceive(&receivedCallback);
