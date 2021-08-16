@@ -5,6 +5,7 @@
 #include <AsyncElegantOTA.h> // OTA
 #include <ArduinoJson.h>
 #include <WebSerial.h> //webserial
+#include "SPIFFS.h"    //kvůli webu ve spiffs
 
 #include "credentials.h" //prihlasováky + nastavení
 
@@ -44,38 +45,6 @@ float temp10cm;
 float temp5cm;
 float tempPrizemni5cm;
 float temp200cm;
-//------------------------------------
-String hostname = "pocasi-loucka.eu"; // hostname na wifi
-//-------------------web---------------
-const char *html = "<p>Napeti: %PLACEHOLDER_VOLTAGE% V</p><p>Proud: %PLACEHOLDER_CURRENT% mA</p><p>Spotreba: %PLACEHOLDER_WATT% mW</p>";
-
-String processor(const String &var)
-{
-
-  Serial.println(var);
-
-  if (var == "PLACEHOLDER_VOLTAGE")
-  {
-    return String(napetiVstup);
-  }
-
-  else if (var == "PLACEHOLDER_CURRENT")
-  {
-    return String(proud);
-  }
-  else if (var == "PLACEHOLDER_WATT")
-  {
-    return String(prikon);
-  }
-
-  return String();
-}
-//----------WiFi - reconnect-----------
-unsigned long previousMillis = 0;
-unsigned long interval = 30000;
-
-AsyncWebServer server(80);
-
 //-----------Proměnné-----------------------
 const char *RadiacniStit_kompilace;
 float RadiacniStit_Teplota_DS;
@@ -88,6 +57,30 @@ const char *Strecha_kompilace;
 float Strecha_winspeed;
 int Strecha_srazky;
 const char *Strecha_windir;
+//------------------------------------
+String hostname = "pocasi-loucka.eu"; // hostname na wifi
+
+//-----------------Processor pro web-----------------
+
+String processor(const String &var)
+{
+
+  if (var == "Komp_master")
+  {
+    return __DATE__ " " __TIME__;
+  }
+  else if (var == "napetiVstup")
+  {
+    return String(napetiVstup);
+  }
+  return String();
+}
+
+//----------WiFi - reconnect-----------
+unsigned long previousMillis = 0;
+unsigned long interval = 30000;
+
+AsyncWebServer server(80);
 
 void setup()
 {
@@ -124,15 +117,20 @@ void setup()
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
+  // Initialize SPIFFS
+  if (!SPIFFS.begin(true))
+  {
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
+
   //-----------------async web--------------- není nutno použít
+
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send_P(200, "text/html", html, processor); });
+            { request->send(SPIFFS, "/index.html", String(), false, processor); });
 
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
-
   server.begin();
-  Serial.println("HTTP server started");
-
   WebSerial.begin(&server);
   server.begin();
 }
@@ -216,7 +214,7 @@ void teplota()
   senzoryDS.setResolution(10);
   senzoryDS.requestTemperatures();
   float tempZcidla100cm;
-  
+
   float tempZcidla50cm;
   float tempZcidla20cm;
   float tempZcidla10cm;
