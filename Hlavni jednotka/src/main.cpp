@@ -69,9 +69,21 @@ String processor(const String &var)
   {
     return __DATE__ " " __TIME__;
   }
-  else if (var == "napetiVstup")
+  else if (var == "rssi")
+  {
+    return String(WiFi.RSSI());
+  }
+    else if (var == "prikon")
+  {
+    return String(prikon);
+  }
+    else if (var == "napetiVstup")
   {
     return String(napetiVstup);
+  }
+    else if (var == "proud")
+  {
+    return String(proud);
   }
   return String();
 }
@@ -213,23 +225,15 @@ void teplota()
 
   senzoryDS.setResolution(10);
   senzoryDS.requestTemperatures();
-  float tempZcidla100cm;
-
-  float tempZcidla50cm;
-  float tempZcidla20cm;
-  float tempZcidla10cm;
-  float tempZcidla5cm;
-  float tempZcidlaPrizemni5cm;
-  float tempZcidla200cm;
   /* 1-wire sekce */ // načtení informací ze všech čidel na daném pinu dle adresy a uložení do promněných
 
-  tempZcidla100cm = senzoryDS.getTempC(Senzor100cm);
-  tempZcidla50cm = senzoryDS.getTempC(Senzor50cm);
-  tempZcidla20cm = senzoryDS.getTempC(Senzor20cm);
-  tempZcidla10cm = senzoryDS.getTempC(Senzor10cm);
-  tempZcidla5cm = senzoryDS.getTempC(Senzor5cm);
-  tempZcidlaPrizemni5cm = senzoryDS.getTempC(SenzorPrizemni5cm);
-  tempZcidla200cm = senzoryDS.getTempC(Senzor200cm);
+  float tempZcidla100cm = senzoryDS.getTempC(Senzor100cm);
+  float tempZcidla50cm = senzoryDS.getTempC(Senzor50cm);
+  float tempZcidla20cm = senzoryDS.getTempC(Senzor20cm);
+  float tempZcidla10cm = senzoryDS.getTempC(Senzor10cm);
+  float tempZcidla5cm = senzoryDS.getTempC(Senzor5cm);
+  float tempZcidlaPrizemni5cm = senzoryDS.getTempC(SenzorPrizemni5cm);
+  float tempZcidla200cm = senzoryDS.getTempC(Senzor200cm);
 
   // validace teplot, teplota se do promněné uloží pouze, když je v rozsahu -50 - 70°C
 
