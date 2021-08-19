@@ -25,10 +25,10 @@ IRAM_ATTR void WindSpeed()
 {
   if ((millis() - lastWindClick > 16))
   { // debounce of sensor signal
-    cli();
+
     windcnt++;
     lastWindClick = millis();
-    sei();
+
   }
 }
 

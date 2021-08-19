@@ -30,7 +30,7 @@ Task logServerTask(10000, TASK_FOREVER, []()
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(57600);
 
   //mesh.setDebugMsgTypes( ERROR | MESH_STATUS | CONNECTION | SYNC | COMMUNICATION | GENERAL | MSG_TYPES | REMOTE | DEBUG ); // all types on
   //mesh.setDebugMsgTypes( ERROR | CONNECTION | SYNC | S_TIME );  // set before init() so that you can see startup messages

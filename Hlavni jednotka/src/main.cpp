@@ -108,7 +108,7 @@ void setup()
   // The data rate must be much higher than the "link" serial port
   Serial.begin(115200);
   //-----------------Bridge port
-  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
+  Serial2.begin(57600, SERIAL_8N1, RXD2, TXD2);
 
   senzoryDS.begin(); //inicializace Dallas DS18B20
 
