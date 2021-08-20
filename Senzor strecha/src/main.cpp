@@ -25,10 +25,8 @@ IRAM_ATTR void WindSpeed()
 {
   if ((millis() - lastWindClick > 16))
   { // debounce of sensor signal
-
     windcnt++;
     lastWindClick = millis();
-
   }
 }
 
@@ -110,6 +108,7 @@ Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
                      msg["WinSpeed"] = windspeed;
                      msg["Rain"] = srazky;
                      msg["WinDir"] = windDir;
+                     msg["Signal"] = WiFi.RSSI();
                      String str;
                      serializeJson(msg, str);
 
