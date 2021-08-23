@@ -13,10 +13,6 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 int CasDat = 30; // cetnost reportu dat skrze MQTT
 unsigned long PosledniOdeslaniDat;
-
-//--------- hostname na wifi---------------------------
-String hostname = "pocasi-loucka.eu";
-
 //-----------Serial 2 input -------------------
 #define RXD2 16
 #define TXD2 17
@@ -41,9 +37,6 @@ float prikon = 0;
 OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature senzoryDS(&oneWire);
-float tempInside;
-
-
 //-----------Proměnné-----------------------
 const char *RadiacniStit_kompilace;
 float RadiacniStit_Teplota_DS;
@@ -57,6 +50,8 @@ float Strecha_winspeed;
 int Strecha_srazky;
 float Strecha_windir;
 int Strecha_signal;
+//------------------------------------
+String hostname = "pocasi-loucka.eu"; // hostname na wifi
 
 //-----------------Processor pro web-----------------
 
@@ -82,10 +77,6 @@ String processor(const String &var)
   else if (var == "proud")
   {
     return String(proud);
-  }
-    else if (var == "teplota")
-  {
-    return String(tempInside);
   }
   return String();
 }
@@ -164,8 +155,6 @@ void PrijemDat()
       Serial.println(error.f_str());
       return;
     }
-
-    
     if (doc.containsKey("RadiacniStit"))
 
     {
@@ -200,28 +189,6 @@ void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 3
   }
 }
 
-void teplota()
-{
-  // adresy 1-wire čidel
-
-  DeviceAddress senzorMain = {0x28, 0xFF, 0x64, 0x1D, 0xF9, 0x87, 0xA8, 0xCC};
-
-  /*---------Proměnné-------------------------*/
-  /*nastavení rozlišení čidel 9 bit  - 0,5°C
-                        10 bit - 0,25°C
-                        11 bit - 0,125°C
-                        12 bit - 0,0625°C
-  */
-
-  senzoryDS.setResolution(10);
-  senzoryDS.requestTemperatures();
-  /* 1-wire sekce */ // načtení informací ze všech čidel na daném pinu dle adresy a uložení do promněných
-
-tempInside = senzoryDS.getTempC(senzorMain);
-
-
-  Serial.println("Načtení teploty z čidel");
-}
 void mqtt()
 {
   if (millis() > PosledniOdeslaniDat + CasDat * 1000)
@@ -263,7 +230,6 @@ void loop()
   napetiVstup = ina219.getBusVoltage_V(); /// INA219
   prikon = ina219.getPower_mW();          // spotřeba v mW
   proud = ina219.getCurrent_mA();
-  teplota();
   PrijemDat();
   mqtt();
   WiFi_reconnect();
