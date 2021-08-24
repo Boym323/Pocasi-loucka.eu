@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="10" >
+<meta http-equiv="refresh" content="10">
 
 <head>
   <title>Status page</title>
@@ -13,13 +13,19 @@
 <body>
   <h1>Status page:</h1>
   <h2>Hlavní jednotka</h2>
-  <p>Síla signálu WiFi: <strong> %rssi%</strong></p>
-  <p>Datum kompilace: <strong> %Komp_master%</strong></p> 
+  <p>Síla signálu WiFi: <strong> %master_rssi%</strong> dB</p>
+  <p>Datum kompilace: <strong> %Komp_master%</strong></p>
   <p>Napětí: <strong> %napetiVstup%</strong> V</p>
   <p>Proud: <strong> %proud%</strong> mA</p>
   <p>Příkon: <strong> %prikon%</strong> mW</p>
-  <h2>Štít</h2>
+  <p>Teplota uvnitř jednotky: <strong> %master_teplota%</strong> °C</p>
 
+  <h2>Štít</h2>
+  <p>Síla signálu: <strong> %Strecha_signal%</strong> dB</p>
+  <p>Datum kompilace: <strong> %Strecha_kompilace%</strong></p>
+  <p>Rychlost větru: <strong> %Strecha_winspeed%</strong> km/h</p>
+  <p>Směr větru: <strong> %Strecha_windir%</strong> °</p>
+  
 </body>
 
 </html>

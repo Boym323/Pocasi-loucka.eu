@@ -13,6 +13,10 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 int CasDat = 30; // cetnost reportu dat skrze MQTT
 unsigned long PosledniOdeslaniDat;
+
+//--------- hostname na wifi---------------------------
+String hostname = "pocasi-loucka.eu";
+
 //-----------Serial 2 input -------------------
 #define RXD2 16
 #define TXD2 17
@@ -26,8 +30,6 @@ unsigned long PosledniOdeslaniDat;
 Adafruit_INA219 ina219(ADDR);
 
 float napetiVstup = 0;
-float napetiBocnik = 0;
-float napetiZatez = 0;
 float proud = 0;
 float prikon = 0;
 //---------------DS18B20--------------------------
@@ -37,21 +39,14 @@ float prikon = 0;
 OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature senzoryDS(&oneWire);
-//-----------Proměnné-----------------------
-const char *RadiacniStit_kompilace;
-float RadiacniStit_Teplota_DS;
-float RadiacniStit_Teplota_Si;
-int RadiacniStit_vlhkost;
-float RadiacniStit_tlak;
-float RadiacniStit_TeplotaBMP180;
+float tempInside;
 
+//-----------Proměnné-----------------------
 const char *Strecha_kompilace;
 float Strecha_winspeed;
 int Strecha_srazky;
 float Strecha_windir;
 int Strecha_signal;
-//------------------------------------
-String hostname = "pocasi-loucka.eu"; // hostname na wifi
 
 //-----------------Processor pro web-----------------
 
@@ -62,7 +57,7 @@ String processor(const String &var)
   {
     return __DATE__ " " __TIME__;
   }
-  else if (var == "rssi")
+  else if (var == "master_rssi")
   {
     return String(WiFi.RSSI());
   }
@@ -77,6 +72,26 @@ String processor(const String &var)
   else if (var == "proud")
   {
     return String(proud);
+  }
+  else if (var == "master_teplota")
+  {
+    return String(tempInside);
+  }
+  else if (var == "Strecha_kompilace")
+  {
+    return String(Strecha_kompilace);
+  }
+    else if (var == "Strecha_winspeed")
+  {
+    return String(Strecha_winspeed);
+  }
+     else if (var == "Strecha_windir")
+  {
+    return String(Strecha_windir);
+  }
+       else if (var == "Strecha_signal")
+  {
+    return String(Strecha_signal);
   }
   return String();
 }
@@ -155,16 +170,7 @@ void PrijemDat()
       Serial.println(error.f_str());
       return;
     }
-    if (doc.containsKey("RadiacniStit"))
 
-    {
-      RadiacniStit_kompilace = doc["Kompilace"];
-      RadiacniStit_Teplota_DS = doc["Temp_DS18B20"];
-      RadiacniStit_Teplota_Si = doc["Temp_Si7021"];
-      RadiacniStit_vlhkost = doc["Hum_Si7021"];
-      RadiacniStit_tlak = doc["barometer"];
-      RadiacniStit_TeplotaBMP180 = doc["Temp_BMP180"];
-    }
     if (doc.containsKey("Strecha"))
 
     {
@@ -189,16 +195,37 @@ void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 3
   }
 }
 
+void teplota()
+{
+  // adresy 1-wire čidel
+
+  DeviceAddress senzorMain = {0x28, 0xFF, 0x64, 0x1D, 0xF9, 0x87, 0xA8, 0xCC};
+
+  /*---------Proměnné-------------------------*/
+  /*nastavení rozlišení čidel 9 bit  - 0,5°C
+                        10 bit - 0,25°C
+                        11 bit - 0,125°C
+                        12 bit - 0,0625°C
+  */
+
+  senzoryDS.setResolution(10);
+  senzoryDS.requestTemperatures();
+  /* 1-wire sekce */ // načtení informací ze všech čidel na daném pinu dle adresy a uložení do promněných
+
+  tempInside = senzoryDS.getTempC(senzorMain);
+
+  Serial.println("Načtení teploty z čidel");
+}
 void mqtt()
 {
   if (millis() > PosledniOdeslaniDat + CasDat * 1000)
   {
+    teplota();
     client.setServer(mqttServer, mqttPort);
     client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
     DynamicJsonDocument JSONencoder(1024);
     char buffer[256];
-    JSONencoder["outTemp"] = RadiacniStit_Teplota_Si;
-    JSONencoder["outHumidity"] = RadiacniStit_vlhkost;
+
     JSONencoder["windSpeed"] = Strecha_winspeed;
     JSONencoder["rain"] = Strecha_srazky;
     JSONencoder["windDir"] = Strecha_windir;
@@ -230,6 +257,7 @@ void loop()
   napetiVstup = ina219.getBusVoltage_V(); /// INA219
   prikon = ina219.getPower_mW();          // spotřeba v mW
   proud = ina219.getCurrent_mA();
+
   PrijemDat();
   mqtt();
   WiFi_reconnect();
