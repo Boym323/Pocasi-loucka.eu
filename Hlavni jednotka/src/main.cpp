@@ -7,6 +7,7 @@
 #include "SPIFFS.h" //kvůli webu ve spiffs
 
 #include "credentials.h" //prihlasováky + nastavení
+#include <StreamUtils.h>
 
 #include <PubSubClient.h> //MQTT
 WiFiClient espClient;
@@ -81,15 +82,15 @@ String processor(const String &var)
   {
     return String(Strecha_kompilace);
   }
-    else if (var == "Strecha_winspeed")
+  else if (var == "Strecha_winspeed")
   {
     return String(Strecha_winspeed);
   }
-     else if (var == "Strecha_windir")
+  else if (var == "Strecha_windir")
   {
     return String(Strecha_windir);
   }
-       else if (var == "Strecha_signal")
+  else if (var == "Strecha_signal")
   {
     return String(Strecha_signal);
   }
@@ -162,14 +163,17 @@ void PrijemDat()
     // Stream & input;
 
     StaticJsonDocument<512> doc;
-    DeserializationError error = deserializeJson(doc, Serial2);
 
-    if (error)
+    ReadLoggingStream loggingStream(Serial2, Serial);
+    DeserializationError error = deserializeJson(doc, loggingStream);
+  //  DeserializationError error = deserializeJson(doc, Serial2);
+
+     /* if (error)
     {
       Serial.print(F("deserializeJson() failed: "));
       Serial.println(error.f_str());
       return;
-    }
+    }*/
 
     if (doc.containsKey("Strecha"))
 
