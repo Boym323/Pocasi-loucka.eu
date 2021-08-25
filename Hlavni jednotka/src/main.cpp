@@ -209,15 +209,15 @@ void PrijemDat()
     StaticJsonDocument<512> doc;
 
     /* ReadLoggingStream loggingStream(Serial2, Serial);
-    DeserializationError error = deserializeJson(doc, loggingStream);*/
-    DeserializationError error = deserializeJson(doc, Serial2);
-
-    /*if (error)
+    DeserializationError error = deserializeJson(doc, loggingStream);
+    if (error)
     {
       Serial.print(F("deserializeJson() failed: "));
       Serial.println(error.f_str());
       return;
     }*/
+
+    deserializeJson(doc, Serial2);
 
     if (doc.containsKey("Strecha"))
 
@@ -243,7 +243,7 @@ void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 3
     previousMillis = millis();
   }
 }
-void napajeni()
+void INA219napajeni()
 {
   napetiVstup = ina219.getBusVoltage_V(); /// INA219
   prikon = ina219.getPower_mW();          // spotřeba v mW
@@ -263,13 +263,10 @@ void teplota()
                         12 bit - 0,0625°C
   */
 
-  senzoryDS.setResolution(10);
+  senzoryDS.setResolution(9);
   senzoryDS.requestTemperatures();
-  /* 1-wire sekce */ // načtení informací ze všech čidel na daném pinu dle adresy a uložení do promněných
 
   tempInside = senzoryDS.getTempC(senzorMain);
-
-  Serial.println("Načtení teploty");
 }
 void mqtt()
 {
@@ -310,15 +307,12 @@ void mqtt()
     PosledniOdeslaniDat = millis();
   }
 }
+
 void loop()
 {
-  napajeni();
+  INA219napajeni();
   teplota();
-  DateTime now = myRTC.now();
-
-  Serial.println(now.unixtime());
-
-  ntp2rtc();
+  //  ntp2rtc();//aktualizace času v RTC
   PrijemDat();
   mqtt();
   WiFi_reconnect();
