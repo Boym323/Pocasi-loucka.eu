@@ -41,8 +41,10 @@ OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature senzoryDS(&oneWire);
 float tempInside;
+//-----------Interní proměnné------------------------------
+bool dataStrecha;
 
-//-----------Proměnné-----------------------
+//-----------Proměnné na data z meshe-----------------------
 const char *Strecha_kompilace;
 float Strecha_winspeed;
 int Strecha_srazky;
@@ -166,9 +168,9 @@ void PrijemDat()
 
     ReadLoggingStream loggingStream(Serial2, Serial);
     DeserializationError error = deserializeJson(doc, loggingStream);
-  //  DeserializationError error = deserializeJson(doc, Serial2);
+    //  DeserializationError error = deserializeJson(doc, Serial2);
 
-     /* if (error)
+    /* if (error)
     {
       Serial.print(F("deserializeJson() failed: "));
       Serial.println(error.f_str());
@@ -183,6 +185,7 @@ void PrijemDat()
       Strecha_srazky = doc["Rain"];
       Strecha_windir = doc["WinDir"];
       Strecha_signal = doc["Signal"];
+      dataStrecha = true;
     }
   }
 }
@@ -198,8 +201,14 @@ void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 3
     previousMillis = millis();
   }
 }
-
+void napajeni()
+{
+  napetiVstup = ina219.getBusVoltage_V(); /// INA219
+  prikon = ina219.getPower_mW();          // spotřeba v mW
+  proud = ina219.getCurrent_mA();
+}
 void teplota()
+
 {
   // adresy 1-wire čidel
 
@@ -224,15 +233,18 @@ void mqtt()
 {
   if (millis() > PosledniOdeslaniDat + CasDat * 1000)
   {
-    teplota();
+
     client.setServer(mqttServer, mqttPort);
     client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
     DynamicJsonDocument JSONencoder(1024);
     char buffer[256];
-
-    JSONencoder["windSpeed"] = Strecha_winspeed;
-    JSONencoder["rain"] = Strecha_srazky;
-    JSONencoder["windDir"] = Strecha_windir;
+    if (dataStrecha == true)
+    {
+      JSONencoder["windSpeed"] = Strecha_winspeed;
+      JSONencoder["rain"] = Strecha_srazky;
+      JSONencoder["windDir"] = Strecha_windir;
+      dataStrecha = false;
+    }
 
     JSONencoder["napetiVstup"] = napetiVstup;
     JSONencoder["proud"] = proud;
@@ -245,7 +257,7 @@ void mqtt()
     Serial.println("Sending message to MQTT topic..");
     Serial.println(buffer);
 
-    if (client.publish("meteostanice/pocasi-loucka.eu", buffer) == true)
+    if (client.publish("pocasi-loucka.eu", buffer) == true)
     {
       Serial.println("Success sending message");
     }
@@ -258,10 +270,8 @@ void mqtt()
 }
 void loop()
 {
-  napetiVstup = ina219.getBusVoltage_V(); /// INA219
-  prikon = ina219.getPower_mW();          // spotřeba v mW
-  proud = ina219.getCurrent_mA();
-
+  napajeni();
+  teplota();
   PrijemDat();
   mqtt();
   WiFi_reconnect();
