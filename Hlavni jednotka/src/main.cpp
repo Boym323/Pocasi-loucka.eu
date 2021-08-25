@@ -17,7 +17,19 @@ unsigned long PosledniOdeslaniDat;
 
 //--------- hostname na wifi---------------------------
 String hostname = "pocasi-loucka.eu";
+//------------NTP + RTC-------------------------------
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include <DS3231.h>
+RTClib myRTC;
 
+#define dec2bcd(dec_in) ((dec_in / 10) << 4) + (dec_in % 10)
+
+// Define NTP Client to get time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org");
+
+byte tByte[0x07]; // holds the array from the NTP server
 //-----------Serial 2 input -------------------
 #define RXD2 16
 #define TXD2 17
@@ -107,6 +119,7 @@ AsyncWebServer server(80);
 
 void setup()
 {
+  Wire.begin(); //RTC
   ina219.begin();
   // nastavení kalibrace, k dispozici jsou 3 režimy
   // režim 32V a 2A má největší rozsahy, ale nejmenší přesnost
@@ -128,13 +141,6 @@ void setup()
   WiFi.begin(ssid, password);
   Serial.println("");
 
-  /* // Wait for connection
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }*/
-  Serial.println("");
   Serial.print("Connected to ");
   Serial.println(ssid);
   Serial.print("IP address: ");
@@ -156,6 +162,42 @@ void setup()
   server.begin();
 }
 
+void ntp2rtc()
+{
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("Nacteni casu z NTP");
+    timeClient.begin();
+
+    // get the datetime from the NTP server
+    timeClient.update();
+    unsigned long epochTime = timeClient.getEpochTime();
+    tByte[0] = (int)timeClient.getSeconds();
+    tByte[1] = (int)timeClient.getMinutes();
+    tByte[2] = (int)timeClient.getHours();
+    tByte[3] = (int)timeClient.getDay();
+    // create a struct to hold date, month and year values
+    struct tm *ptm = gmtime((time_t *)&epochTime);
+    tByte[4] = (int)ptm->tm_mday;
+    tByte[5] = (int)ptm->tm_mon + 1;
+    tByte[6] = (int)ptm->tm_year - 100;
+
+    /* if the time stored in the DS3231 register does not match
+   *  the time retrieved from the NTP server, update the DS3231
+   *  register to the current time.
+   */
+
+    Wire.beginTransmission(0x68);
+    // Set device to start read reg 0
+    Wire.write(0x00);
+    for (int idx = 0; idx < 7; idx++)
+    {
+      Wire.write(dec2bcd(tByte[idx]));
+    }
+    Wire.endTransmission();
+  }
+}
+
 void PrijemDat()
 {
   // Kontrola, zda přicházejí data
@@ -166,11 +208,11 @@ void PrijemDat()
 
     StaticJsonDocument<512> doc;
 
-    ReadLoggingStream loggingStream(Serial2, Serial);
-    DeserializationError error = deserializeJson(doc, loggingStream);
-    //  DeserializationError error = deserializeJson(doc, Serial2);
+    /* ReadLoggingStream loggingStream(Serial2, Serial);
+    DeserializationError error = deserializeJson(doc, loggingStream);*/
+    DeserializationError error = deserializeJson(doc, Serial2);
 
-    /* if (error)
+    /*if (error)
     {
       Serial.print(F("deserializeJson() failed: "));
       Serial.println(error.f_str());
@@ -227,7 +269,7 @@ void teplota()
 
   tempInside = senzoryDS.getTempC(senzorMain);
 
-  Serial.println("Načtení teploty z čidel");
+  Serial.println("Načtení teploty");
 }
 void mqtt()
 {
@@ -272,6 +314,11 @@ void loop()
 {
   napajeni();
   teplota();
+  DateTime now = myRTC.now();
+
+  Serial.println(now.unixtime());
+
+  ntp2rtc();
   PrijemDat();
   mqtt();
   WiFi_reconnect();
