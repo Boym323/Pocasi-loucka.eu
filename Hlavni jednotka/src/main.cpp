@@ -7,7 +7,7 @@
 #include "SPIFFS.h" //kvůli webu ve spiffs
 
 #include "credentials.h" //prihlasováky + nastavení
-#include <StreamUtils.h>
+#include <StreamUtils.h>// loging Serial2Serial
 
 #include <PubSubClient.h> //MQTT
 WiFiClient espClient;
@@ -208,8 +208,9 @@ void PrijemDat()
 
     StaticJsonDocument<512> doc;
 
-    /* ReadLoggingStream loggingStream(Serial2, Serial);
+     ReadLoggingStream loggingStream(Serial2, Serial);
     DeserializationError error = deserializeJson(doc, loggingStream);
+  /*  
     if (error)
     {
       Serial.print(F("deserializeJson() failed: "));
@@ -217,7 +218,7 @@ void PrijemDat()
       return;
     }*/
 
-    deserializeJson(doc, Serial2);
+  //  deserializeJson(doc, Serial2);
 
     if (doc.containsKey("Strecha"))
 
