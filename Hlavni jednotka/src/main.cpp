@@ -7,8 +7,55 @@
 #include "SPIFFS.h" //kvůli webu ve spiffs
 
 #include "credentials.h" //prihlasováky + nastavení
-#include <StreamUtils.h>// loging Serial2Serial
+#include <StreamUtils.h> // loging Serial2Serial
 
+//--------------SD karta---------------------
+#define SD_CS 5
+#include "FS.h"
+#include "SD.h"
+#include <SPI.h>
+
+// Write to the SD card (DON'T MODIFY THIS FUNCTION)
+void writeFile(fs::FS &fs, const char *path, const char *message)
+{
+  Serial.printf("Writing file: %s\n", path);
+  File file = fs.open(path, FILE_WRITE);
+  if (!file)
+  {
+    Serial.println("Failed to open file for writing");
+    return;
+  }
+  if (file.print(message))
+  {
+    Serial.println("File written");
+  }
+  else
+  {
+    Serial.println("Write failed");
+  }
+  file.close();
+}
+// Append data to the SD card (DON'T MODIFY THIS FUNCTION)
+void appendFile(fs::FS &fs, const char *path, const char *message)
+{
+  Serial.printf("Appending to file: %s\n", path);
+  File file = fs.open(path, FILE_APPEND);
+  if (!file)
+  {
+    Serial.println("Failed to open file for appending");
+    return;
+  }
+  if (file.print(message))
+  {
+    Serial.println("Message appended");
+  }
+  else
+  {
+    Serial.println("Append failed");
+  }
+  file.close();
+}
+//-------------MQTT-------------------------------------
 #include <PubSubClient.h> //MQTT
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -160,6 +207,38 @@ void setup()
 
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
   server.begin();
+
+  //------------------------ Initialize SD card
+  SD.begin(SD_CS);
+  if (!SD.begin(SD_CS))
+  {
+    Serial.println("Card Mount Failed");
+    return;
+  }
+  uint8_t cardType = SD.cardType();
+  if (cardType == CARD_NONE)
+  {
+    Serial.println("No SD card attached");
+    return;
+  }
+  Serial.println("Initializing SD card...");
+  if (!SD.begin(SD_CS))
+  {
+    Serial.println("ERROR - SD card initialization failed!");
+    return; // init failed
+  }
+  File file = SD.open("/data.txt");
+  if (!file)
+  {
+    Serial.println("File doens't exist");
+    Serial.println("Creating file...");
+    writeFile(SD, "/data.txt", "Date, Time, Temperature, Humidity \r\n");
+  }
+  else
+  {
+    Serial.println("File already exists");
+  }
+  file.close();
 }
 
 void ntp2rtc()
@@ -208,17 +287,10 @@ void PrijemDat()
 
     StaticJsonDocument<512> doc;
 
-     ReadLoggingStream loggingStream(Serial2, Serial);
-    DeserializationError error = deserializeJson(doc, loggingStream);
-  /*  
-    if (error)
-    {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.f_str());
-      return;
-    }*/
+    ReadLoggingStream loggingStream(Serial2, Serial);
+    deserializeJson(doc, loggingStream);
 
-  //  deserializeJson(doc, Serial2);
+    //  deserializeJson(doc, Serial2);
 
     if (doc.containsKey("Strecha"))
 
@@ -269,6 +341,18 @@ void teplota()
 
   tempInside = senzoryDS.getTempC(senzorMain);
 }
+void logSDCard()
+{
+  DateTime now = myRTC.now();
+
+  Serial.println(now.unixtime());
+
+  String dataMessage = String(now.unixtime()) + "," + String(napetiVstup) + "," +
+                       String(prikon) + "," + String(proud) + "\r\n";
+  Serial.print("Save data: ");
+  Serial.println(dataMessage);
+  appendFile(SD, "/data.txt", dataMessage.c_str());
+}
 void mqtt()
 {
   if (millis() > PosledniOdeslaniDat + CasDat * 1000)
@@ -285,7 +369,7 @@ void mqtt()
       JSONencoder["windDir"] = Strecha_windir;
       dataStrecha = false;
     }
-
+    logSDCard();
     JSONencoder["napetiVstup"] = napetiVstup;
     JSONencoder["proud"] = proud;
     JSONencoder["prikon"] = prikon;
