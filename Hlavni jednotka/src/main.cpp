@@ -104,7 +104,7 @@ bool novaData;
 //-----------Proměnné na data z meshe-----------------------
 const char *Strecha_kompilace;
 float Strecha_winspeed;
-int Strecha_srazky;
+float Strecha_srazky;
 float Strecha_windir;
 int Strecha_signal;
 
