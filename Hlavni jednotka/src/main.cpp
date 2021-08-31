@@ -141,7 +141,7 @@ String processor(const String &var)
   }
   else if (var == "Strecha_kompilace")
   {
-    return String(Strecha_kompilace);
+    return Strecha_kompilace;
   }
   else if (var == "Strecha_winspeed")
   {
@@ -369,7 +369,7 @@ void mqtt()
       JSONencoder["windDir"] = Strecha_windir;
       dataStrecha = false;
     }
-    logSDCard();
+
     JSONencoder["napetiVstup"] = napetiVstup;
     JSONencoder["proud"] = proud;
     JSONencoder["prikon"] = prikon;
@@ -398,6 +398,7 @@ void loop()
   INA219napajeni();
   teplota();
   //  ntp2rtc();//aktualizace času v RTC
+  //  logSDCard();
   PrijemDat();
   mqtt();
   WiFi_reconnect();
