@@ -59,8 +59,6 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
 #include <PubSubClient.h> //MQTT
 WiFiClient espClient;
 PubSubClient client(espClient);
-int CasDat = 30; // cetnost reportu dat skrze MQTT
-unsigned long PosledniOdeslaniDat;
 
 //--------- hostname na wifi---------------------------
 String hostname = "pocasi-loucka.eu";
@@ -102,7 +100,7 @@ DallasTemperature senzoryDS(&oneWire);
 float tempInside;
 //-----------Interní proměnné------------------------------
 bool dataStrecha;
-
+bool novaData;
 //-----------Proměnné na data z meshe-----------------------
 const char *Strecha_kompilace;
 float Strecha_winspeed;
@@ -301,6 +299,7 @@ void PrijemDat()
       Strecha_windir = doc["WinDir"];
       Strecha_signal = doc["Signal"];
       dataStrecha = true;
+      novaData = true;
     }
   }
 }
@@ -355,7 +354,7 @@ void logSDCard()
 }
 void mqtt()
 {
-  if (millis() > PosledniOdeslaniDat + CasDat * 1000)
+  if (novaData == true)
   {
 
     client.setServer(mqttServer, mqttPort);
@@ -367,6 +366,8 @@ void mqtt()
       JSONencoder["windSpeed"] = Strecha_winspeed;
       JSONencoder["rain"] = Strecha_srazky;
       JSONencoder["windDir"] = Strecha_windir;
+      JSONencoder["signal2"] = Strecha_signal;
+
       dataStrecha = false;
     }
 
@@ -389,7 +390,7 @@ void mqtt()
     {
       Serial.println("Error sending message");
     }
-    PosledniOdeslaniDat = millis();
+    novaData = false;
   }
 }
 
