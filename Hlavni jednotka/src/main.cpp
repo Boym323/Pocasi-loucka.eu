@@ -101,6 +101,8 @@ float tempInside;
 //-----------Interní proměnné------------------------------
 bool dataStrecha;
 bool novaData;
+bool logNaKartu;
+
 //-----------Proměnné na data z meshe-----------------------
 const char *Strecha_kompilace;
 float Strecha_winspeed;
@@ -202,7 +204,8 @@ void setup()
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SPIFFS, "/index.html", String(), false, processor); });
-
+  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SD, "/data.txt", "text/plain"); });
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
   server.begin();
 
@@ -342,15 +345,26 @@ void teplota()
 }
 void logSDCard()
 {
+
   DateTime now = myRTC.now();
 
-  Serial.println(now.unixtime());
+  if (now.second() != 0)
+  {
+    logNaKartu = true;
+  }
 
-  String dataMessage = String(now.unixtime()) + "," + String(napetiVstup) + "," +
-                       String(prikon) + "," + String(proud) + "\r\n";
-  Serial.print("Save data: ");
-  Serial.println(dataMessage);
-  appendFile(SD, "/data.txt", dataMessage.c_str());
+  if ((now.minute() % 5 == 0) && (now.second() == 0) && logNaKartu == true)
+  {
+
+    Serial.println(now.unixtime());
+
+    String dataMessage = String(now.unixtime()) + "," + String(Strecha_winspeed) + "," +
+                         String(Strecha_windir) + "," + String(proud) + "\r\n";
+    Serial.print("Save data: ");
+    Serial.println(dataMessage);
+    appendFile(SD, "/data.txt", dataMessage.c_str());
+    logNaKartu = false;
+  }
 }
 void mqtt()
 {
@@ -399,7 +413,7 @@ void loop()
   INA219napajeni();
   teplota();
   //  ntp2rtc();//aktualizace času v RTC
-  //  logSDCard();
+  logSDCard();
   PrijemDat();
   mqtt();
   WiFi_reconnect();
