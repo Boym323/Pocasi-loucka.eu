@@ -104,7 +104,7 @@ bool novaData;
 bool logNaKartu;
 
 //-----------Proměnné na data z meshe-----------------------
-const char *Strecha_kompilace;
+String Strecha_kompilace;
 float Strecha_winspeed;
 float Strecha_srazky;
 float Strecha_windir;
@@ -141,7 +141,7 @@ String processor(const String &var)
   }
   else if (var == "Strecha_kompilace")
   {
-    return Strecha_kompilace;
+    return String(Strecha_kompilace);
   }
   else if (var == "Strecha_winspeed")
   {
@@ -296,13 +296,15 @@ void PrijemDat()
     if (doc.containsKey("Strecha"))
 
     {
-      Strecha_kompilace = doc["Kompilace"];
+      const char *kompilace;
+      kompilace = doc["Kompilace"];
       Strecha_winspeed = doc["WinSpeed"];
       Strecha_srazky = doc["Rain"];
       Strecha_windir = doc["WinDir"];
       Strecha_signal = doc["Signal"];
       dataStrecha = true;
       novaData = true;
+      Strecha_kompilace = String(kompilace);
     }
   }
 }
@@ -359,7 +361,7 @@ void logSDCard()
     Serial.println(now.unixtime());
 
     String dataMessage = String(now.unixtime()) + "," + String(Strecha_winspeed) + "," +
-                         String(Strecha_windir) + "," + String(proud) + "\r\n";
+                         String(Strecha_windir) + "," + String(Strecha_kompilace) + "\r\n";
     Serial.print("Save data: ");
     Serial.println(dataMessage);
     appendFile(SD, "/data.txt", dataMessage.c_str());
