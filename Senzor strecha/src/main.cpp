@@ -79,7 +79,7 @@ Task nacteniDatCidla(casOdeslani * 1000, TASK_FOREVER, []()
                          windDir = "180";
                        else if (napetiWindDir < 1.9821)
                          windDir = "22.5";
-                       else if (napetiWindDir < 1.2527)
+                       else if (napetiWindDir < 2.2527)
                          windDir = "45";
                        else if (napetiWindDir < 2.9268)
                          windDir = "247.5";
@@ -108,6 +108,7 @@ Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
                      msg["WinSpeed"] = windspeed;
                      msg["Rain"] = srazky;
                      msg["WinDir"] = windDir;
+                     msg["NapetiWinDir"] = napetiWindDir;
                      msg["Signal"] = WiFi.RSSI();
                      String str;
                      serializeJson(msg, str);

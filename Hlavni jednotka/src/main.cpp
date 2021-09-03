@@ -109,7 +109,7 @@ float Strecha_winspeed;
 float Strecha_srazky;
 float Strecha_windir;
 int Strecha_signal;
-
+float NapetiWinDir;
 //-----------------Processor pro web-----------------
 
 String processor(const String &var)
@@ -154,6 +154,10 @@ String processor(const String &var)
   else if (var == "Strecha_signal")
   {
     return String(Strecha_signal);
+  }
+  else if (var == "NapetiWinDir")
+  {
+    return String(NapetiWinDir);
   }
   return String();
 }
@@ -204,8 +208,8 @@ void setup()
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SPIFFS, "/index.html", String(), false, processor); });
-  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SD, "/data.txt", "text/plain"); });
+  server.on("/test", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SD, "/test.txt", "text/plain"); });
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
   server.begin();
 
@@ -228,12 +232,12 @@ void setup()
     Serial.println("ERROR - SD card initialization failed!");
     return; // init failed
   }
-  File file = SD.open("/data.txt");
+  File file = SD.open("/test.txt");
   if (!file)
   {
     Serial.println("File doens't exist");
     Serial.println("Creating file...");
-    writeFile(SD, "/data.txt", "Date, Time, Temperature, Humidity \r\n");
+    writeFile(SD, "/test.txt", "Date, WinSpeed, WinDir, NapetiWinDir \r\n");
   }
   else
   {
@@ -288,10 +292,10 @@ void PrijemDat()
 
     StaticJsonDocument<512> doc;
 
-    ReadLoggingStream loggingStream(Serial2, Serial);
-    deserializeJson(doc, loggingStream);
+    /*  ReadLoggingStream loggingStream(Serial2, Serial);
+    deserializeJson(doc, loggingStream);*/
 
-    //  deserializeJson(doc, Serial2);
+    deserializeJson(doc, Serial2);
 
     if (doc.containsKey("Strecha"))
 
@@ -302,6 +306,7 @@ void PrijemDat()
       Strecha_srazky = doc["Rain"];
       Strecha_windir = doc["WinDir"];
       Strecha_signal = doc["Signal"];
+      NapetiWinDir = doc["NapetiWinDir"];
       dataStrecha = true;
       novaData = true;
       Strecha_kompilace = String(kompilace);
@@ -361,10 +366,10 @@ void logSDCard()
     Serial.println(now.unixtime());
 
     String dataMessage = String(now.unixtime()) + "," + String(Strecha_winspeed) + "," +
-                         String(Strecha_windir) + "," + String(Strecha_kompilace) + "\r\n";
+                         String(Strecha_windir) + "," + String(NapetiWinDir) + "\r\n";
     Serial.print("Save data: ");
     Serial.println(dataMessage);
-    appendFile(SD, "/data.txt", dataMessage.c_str());
+    appendFile(SD, "/test.txt", dataMessage.c_str());
     logNaKartu = false;
   }
 }
