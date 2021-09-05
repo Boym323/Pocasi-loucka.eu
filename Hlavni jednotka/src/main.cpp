@@ -123,6 +123,14 @@ String processor(const String &var)
   {
     return String(WiFi.RSSI());
   }
+  else if (var == "esp_ram")
+  {
+    return String(ESP.getFreeHeap()/1024);
+  }
+  else if (var == "uptime")
+  {
+    return String(millis()/1000/60);
+  }
   else if (var == "prikon")
   {
     return String(prikon);
@@ -361,7 +369,7 @@ void logSDCard()
     Serial.println(now.unixtime());
 
     String dataMessage = String(now.unixtime()) + "," + String(Strecha_winspeed) + "," +
-                         String(Strecha_windir) + "," + String(Strecha_kompilace) + "\r\n";
+                         String(Strecha_windir) + "," + String(Strecha_signal) + "\r\n";
     Serial.print("Save data: ");
     Serial.println(dataMessage);
     appendFile(SD, "/data.txt", dataMessage.c_str());
@@ -387,7 +395,7 @@ void mqtt()
       dataStrecha = false;
     }
 
-    JSONencoder["napetiVstup"] = napetiVstup;
+    JSONencoder["supplyVoltage"] = napetiVstup;
     JSONencoder["proud"] = proud;
     JSONencoder["prikon"] = prikon;
 
