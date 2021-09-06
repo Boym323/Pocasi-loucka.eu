@@ -19,6 +19,7 @@
 void writeFile(fs::FS &fs, const char *path, const char *message)
 {
   Serial.printf("Writing file: %s\n", path);
+
   File file = fs.open(path, FILE_WRITE);
   if (!file)
   {
@@ -35,10 +36,12 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
   }
   file.close();
 }
+
 // Append data to the SD card (DON'T MODIFY THIS FUNCTION)
 void appendFile(fs::FS &fs, const char *path, const char *message)
 {
   Serial.printf("Appending to file: %s\n", path);
+
   File file = fs.open(path, FILE_APPEND);
   if (!file)
   {
@@ -125,11 +128,11 @@ String processor(const String &var)
   }
   else if (var == "esp_ram")
   {
-    return String(ESP.getFreeHeap()/1024);
+    return String(ESP.getFreeHeap() / 1024);
   }
   else if (var == "uptime")
   {
-    return String(millis()/1000/60);
+    return String(millis() / 1000 / 60);
   }
   else if (var == "prikon")
   {
@@ -221,7 +224,7 @@ void setup()
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
   server.begin();
 
-  //------------------------ Initialize SD card
+  // Initialize SD card
   SD.begin(SD_CS);
   if (!SD.begin(SD_CS))
   {
@@ -240,6 +243,8 @@ void setup()
     Serial.println("ERROR - SD card initialization failed!");
     return; // init failed
   }
+    // If the data.txt file doesn't exist
+  // Create a file on the SD card and write the data labels
   File file = SD.open("/data.txt");
   if (!file)
   {
@@ -251,7 +256,8 @@ void setup()
   {
     Serial.println("File already exists");
   }
-  file.close();
+    file.close();
+
 }
 
 void ntp2rtc()
@@ -361,6 +367,7 @@ void teplota()
 void logSDCard()
 {
 
+  
   DateTime now = myRTC.now();
 
   if (now.second() != 0)
