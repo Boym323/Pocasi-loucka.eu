@@ -184,9 +184,9 @@ void setup()
   // režim 32V a 2A má největší rozsahy, ale nejmenší přesnost
   //ina219.setCalibration_32V_2A();
   // režim 32V a 1A má lepší rozlišení průchozího proudu
-  ina219.setCalibration_32V_1A();
+  //ina219.setCalibration_32V_1A();
   // režim 16V a 400mA má nejlepší rozlišení proudu i napětí
-  //ina219.setCalibration_16V_400mA();
+  ina219.setCalibration_16V_400mA();
   // Initialize "debug" serial port
   // The data rate must be much higher than the "link" serial port
   Serial.begin(115200);
@@ -216,8 +216,8 @@ void setup()
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SPIFFS, "/index.html", String(), false, processor); });
-  server.on("/test", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SD, "/test.txt", "text/plain"); });
+  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SD, "/data.txt", "text/plain"); });
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
   server.begin();
 
@@ -240,12 +240,12 @@ void setup()
     Serial.println("ERROR - SD card initialization failed!");
     return; // init failed
   }
-  File file = SD.open("/test.txt");
+  File file = SD.open("/data.txt");
   if (!file)
   {
     Serial.println("File doens't exist");
     Serial.println("Creating file...");
-    writeFile(SD, "/test.txt", "Date, WinSpeed, WinDir, NapetiWinDir \r\n");
+    writeFile(SD, "/data.txt", "Date, WinSpeed, WinDir, NapetiWinDir \r\n");
   }
   else
   {
@@ -377,7 +377,7 @@ void logSDCard()
                          String(Strecha_windir) + "," + String(NapetiWinDir) + "\r\n";
     Serial.print("Save data: ");
     Serial.println(dataMessage);
-    appendFile(SD, "/test.txt", dataMessage.c_str());
+    appendFile(SD, "/data.txt", dataMessage.c_str());
     logNaKartu = false;
   }
 }

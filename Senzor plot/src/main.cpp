@@ -18,7 +18,7 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
 Adafruit_Si7021 Si7021 = Adafruit_Si7021();
-int casOdeslani = 20; //sekund
+int casOdeslani = 30; //sekund
 
 float tempDS18B20;
 int humSi7021;
@@ -38,7 +38,7 @@ Task nacteniDatCidla(casOdeslani * 1000, TASK_FOREVER, []()
                        tempSi7021 = Si7021.readTemperature();
 
                        DeviceAddress Teplota2m = {0x28, 0xFF, 0x64, 0x1D, 0xF9, 0x86, 0x3C, 0x78};
-                       sensors.setResolution(Teplota2m, 11);
+                       sensors.setResolution(Teplota2m, 10);
                        //Serial.print(sensors.getResolution(Teplota2m), DEC);
                        sensors.requestTemperatures();
                        tempDS18B20 = sensors.getTempC(Teplota2m);
@@ -57,9 +57,8 @@ Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
                    {
                      DynamicJsonDocument jsonBuffer(1024);
                      JsonObject msg = jsonBuffer.to<JsonObject>();
-                     msg["RadiacniStit"] = "RadiacniStit";
+                     msg["Plot"] = "Plot";
                      msg["Kompilace"] = __DATE__ " " __TIME__;
-                     msg["Temp_DS18B20"] = tempDS18B20;
                      msg["Temp_Si7021"] = tempSi7021;
                      msg["Hum_Si7021"] = humSi7021;
                      msg["Temp_BMP180"] = T;
@@ -91,7 +90,7 @@ void setup()
 
   mesh.init(MESH_PREFIX, MESH_PASSWORD, &userScheduler, MESH_PORT, WIFI_AP_STA, 6);
   mesh.onReceive(&receivedCallback);
-  mesh.initOTAReceive("RadiacniStit");
+  mesh.initOTAReceive("Plot");
 
   // Add the task to the your scheduler
   userScheduler.addTask(nacteniDatCidla);
