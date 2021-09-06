@@ -123,6 +123,14 @@ String processor(const String &var)
   {
     return String(WiFi.RSSI());
   }
+  else if (var == "esp_ram")
+  {
+    return String(ESP.getFreeHeap()/1024);
+  }
+  else if (var == "uptime")
+  {
+    return String(millis()/1000/60);
+  }
   else if (var == "prikon")
   {
     return String(prikon);
@@ -392,7 +400,7 @@ void mqtt()
       dataStrecha = false;
     }
 
-    JSONencoder["napetiVstup"] = napetiVstup;
+    JSONencoder["supplyVoltage"] = napetiVstup;
     JSONencoder["proud"] = proud;
     JSONencoder["prikon"] = prikon;
 
