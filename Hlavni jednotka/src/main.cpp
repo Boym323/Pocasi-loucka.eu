@@ -170,6 +170,10 @@ String processor(const String &var)
   {
     return String(NapetiWinDir);
   }
+  else if (var == "StavSD")
+  {
+    return String(SD.begin(SD_CS));
+  }
   return String();
 }
 
@@ -221,6 +225,13 @@ void setup()
             { request->send(SPIFFS, "/index.html", String(), false, processor); });
   server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SD, "/data.txt", "text/plain"); });
+  server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+              request->send(200, "text/plain", "OK");
+              delay(2000);
+              ESP.restart();
+            });
+
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
   server.begin();
 
@@ -243,7 +254,7 @@ void setup()
     Serial.println("ERROR - SD card initialization failed!");
     return; // init failed
   }
-    // If the data.txt file doesn't exist
+  // If the data.txt file doesn't exist
   // Create a file on the SD card and write the data labels
   File file = SD.open("/data.txt");
   if (!file)
@@ -256,8 +267,7 @@ void setup()
   {
     Serial.println("File already exists");
   }
-    file.close();
-
+  file.close();
 }
 
 void ntp2rtc()
@@ -366,8 +376,6 @@ void teplota()
 }
 void logSDCard()
 {
-
-  
   DateTime now = myRTC.now();
 
   if (now.second() != 0)
@@ -381,7 +389,7 @@ void logSDCard()
     Serial.println(now.unixtime());
 
     String dataMessage = String(now.unixtime()) + "," + String(Strecha_winspeed) + "," +
-                         String(Strecha_windir) + "," + String(NapetiWinDir) + "\r\n";
+                         String(Strecha_windir) + "," + String(tempInside) + "\r\n";
     Serial.print("Save data: ");
     Serial.println(dataMessage);
     appendFile(SD, "/data.txt", dataMessage.c_str());
