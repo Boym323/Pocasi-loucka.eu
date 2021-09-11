@@ -1,28 +1,31 @@
 #include "painlessMesh.h"
 #include "credentials.h"
 
-#include "Adafruit_Si7021.h"
+#include <Arduino.h>
+#include <Wire.h>
+#include "Adafruit_SHT31.h"
+
+Adafruit_SHT31 sht31 = Adafruit_SHT31();
+
+#include <Wire.h>
+#include <SPI.h>
+#include <Adafruit_BMP280.h>
+#define BMP280_ADDRESS (0x76)
+#define BMP280_CHIPID (0x58)
+#define ALTITUDE 425 // nadmořská výška stanice
+Adafruit_BMP280 bmp; // I2C
+
 #include <OneWire.h>
 #include <DallasTemperature.h>
-
-#include <SFE_BMP180.h>
-SFE_BMP180 pressure;
-#define ALTITUDE 425 // nadmořská výška stanice
-Adafruit_Si7021 sensor = Adafruit_Si7021();
-double T, P, p0, a; // BMP180 T - teplota. P - tlak, P0 - tlak u hladiny moře
-
 #define ONE_WIRE_BUS 13
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature sensors(&oneWire);
 
-Adafruit_Si7021 Si7021 = Adafruit_Si7021();
-int casOdeslani = 30; //sekund
+int casOdeslani = 3; //sekund
 
 float tempDS18B20;
-int humSi7021;
-float tempSi7021;
 
 Scheduler userScheduler; // to control your personal task
 painlessMesh mesh;
@@ -32,37 +35,24 @@ void receivedCallback(uint32_t from, String &msg);
 
 size_t logServerId = 0;
 
-Task nacteniDatCidla(casOdeslani * 1000, TASK_FOREVER, []()
-                     {
-                       humSi7021 = Si7021.readHumidity();
-                       tempSi7021 = Si7021.readTemperature();
-
-                       DeviceAddress Teplota2m = {0x28, 0xFF, 0x64, 0x1D, 0xF9, 0x86, 0x3C, 0x78};
-                       sensors.setResolution(Teplota2m, 10);
-                       //Serial.print(sensors.getResolution(Teplota2m), DEC);
-                       sensors.requestTemperatures();
-                       tempDS18B20 = sensors.getTempC(Teplota2m);
-
-                       char status;
-                       status = pressure.startTemperature();
-                       delay(status);
-                       status = pressure.getTemperature(T);
-                       status = pressure.startPressure(3);
-                       delay(status);
-                       status = pressure.getPressure(P, T);
-                       p0 = pressure.sealevel(P, ALTITUDE); // we're at 1655 meters (Boulder, CO)
-                     });
 // Send message to the logServer every 10 seconds
 Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
                    {
+                     DeviceAddress Teplota2m = {0x28, 0x04, 0xB5, 0x79, 0xA2, 0x01, 0x03, 0xFB};
+                     sensors.setResolution(Teplota2m, 10);
+                     sensors.requestTemperatures();
+                     tempDS18B20 = sensors.getTempC(Teplota2m);
+
                      DynamicJsonDocument jsonBuffer(1024);
                      JsonObject msg = jsonBuffer.to<JsonObject>();
                      msg["Plot"] = "Plot";
                      msg["Kompilace"] = __DATE__ " " __TIME__;
-                     msg["Temp_Si7021"] = tempSi7021;
-                     msg["Hum_Si7021"] = humSi7021;
-                     msg["Temp_BMP180"] = T;
-                     msg["barometer"] = p0;
+                     msg["tempDS18B20"] = tempDS18B20;
+                     msg["tempBMP180"] = bmp.readTemperature();
+                     msg["pressureBMP180"] = bmp.readPressure() / 100;
+                     msg["barometerBMP180"] = bmp.seaLevelForAltitude(ALTITUDE, bmp.readPressure() / 100);
+                     msg["tempSHT31"] = sht31.readTemperature();
+                     msg["humSHT31"] = sht31.readHumidity();
                      String str;
                      serializeJson(msg, str);
 
@@ -79,12 +69,17 @@ Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
 
 void setup()
 {
-  Si7021.begin();
-  sensors.begin();
-  Wire.begin();
-  pressure.begin(); //BMP180
 
   Serial.begin(115200);
+  sht31.begin(0x44);
+  sensors.begin();
+  bmp.begin(BMP280_ADDRESS, BMP280_CHIPID);
+  /* Default settings from datasheet. */
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
 
   mesh.setDebugMsgTypes(ERROR | STARTUP | CONNECTION); // set before init() so that you can see startup messages
 
@@ -92,9 +87,6 @@ void setup()
   mesh.onReceive(&receivedCallback);
   mesh.initOTAReceive("Plot");
 
-  // Add the task to the your scheduler
-  userScheduler.addTask(nacteniDatCidla);
-  nacteniDatCidla.enable();
   userScheduler.addTask(myLoggingTask);
   myLoggingTask.enable();
 }
