@@ -23,7 +23,7 @@ OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature sensors(&oneWire);
 
-int casOdeslani = 3; //sekund
+int casOdeslani = 30; //sekund
 
 float tempDS18B20;
 
@@ -53,6 +53,7 @@ Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
                      msg["barometerBMP180"] = bmp.seaLevelForAltitude(ALTITUDE, bmp.readPressure() / 100);
                      msg["tempSHT31"] = sht31.readTemperature();
                      msg["humSHT31"] = sht31.readHumidity();
+                     msg["Signal"] = WiFi.RSSI();
                      String str;
                      serializeJson(msg, str);
 

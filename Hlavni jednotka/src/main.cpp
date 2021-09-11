@@ -103,6 +103,7 @@ DallasTemperature senzoryDS(&oneWire);
 float tempInside;
 //-----------Interní proměnné------------------------------
 bool dataStrecha;
+bool dataPlot;
 bool novaData;
 bool logNaKartu;
 
@@ -113,6 +114,16 @@ float Strecha_srazky;
 float Strecha_windir;
 int Strecha_signal;
 float NapetiWinDir;
+
+String Plot_kompilace;
+float Plot_tempDS18B20;
+float Plot_tempBMP180;
+float Plot_pressureBMP180;
+float Plot_barometerBMP180;
+float Plot_tempSHT31;
+int Plot_humSHT31;
+int Plot_signal;
+
 //-----------------Processor pro web-----------------
 
 String processor(const String &var)
@@ -174,6 +185,39 @@ String processor(const String &var)
   {
     return String(SD.begin(SD_CS));
   }
+  else if (var == "Plot_signal")
+  {
+    return String(Plot_signal);
+  }
+  else if (var == "Plot_kompilace")
+  {
+    return String(Plot_kompilace);
+  }
+  else if (var == "Plot_tempDS18B20")
+  {
+    return String(Plot_tempDS18B20);
+  }
+  else if (var == "Plot_tempBMP180")
+  {
+    return String(Plot_tempBMP180);
+  }
+  else if (var == "Plot_tempSHT31")
+  {
+    return String(Plot_tempSHT31);
+  }
+  else if (var == "Plot_humSHT31")
+  {
+    return String(Plot_humSHT31);
+  }
+  else if (var == "Plot_pressureBMP180")
+  {
+    return String(Plot_pressureBMP180);
+  }
+  else if (var == "Plot_barometerBMP180")
+  {
+    return String(Plot_barometerBMP180);
+  }
+
   return String();
 }
 
@@ -335,6 +379,22 @@ void PrijemDat()
       novaData = true;
       Strecha_kompilace = String(kompilace);
     }
+    if (doc.containsKey("Plot"))
+
+    {
+      const char *kompilace;
+      kompilace = doc["Kompilace"];
+      Plot_tempDS18B20 = doc["tempDS18B20"];
+      Plot_tempBMP180 = doc["tempBMP180"];
+      Plot_pressureBMP180 = doc["pressureBMP180"];
+      Plot_barometerBMP180 = doc["barometerBMP180"];
+      Plot_tempSHT31 = doc["tempSHT31"];
+      Plot_humSHT31 = doc["humSHT31"];
+      Plot_signal = doc["Signal"];
+      dataPlot = true;
+      novaData = true;
+      Plot_kompilace = String(kompilace);
+    }
   }
 }
 void WiFi_reconnect() //funkce na reconnect, pokud není připojeno, tak se co 30s snaží znova připojit
@@ -413,6 +473,16 @@ void mqtt()
       JSONencoder["signal2"] = Strecha_signal;
 
       dataStrecha = false;
+    }
+
+    if (dataPlot == true)
+    {
+      JSONencoder["outTemp"] = Plot_tempDS18B20;
+      JSONencoder["outHumidity"] = Plot_humSHT31;
+      JSONencoder["barometer"] = Plot_barometerBMP180;
+      JSONencoder["signal3"] = Plot_signal;
+
+      dataPlot = false;
     }
 
     JSONencoder["supplyVoltage"] = napetiVstup;
