@@ -101,6 +101,13 @@ OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature senzoryDS(&oneWire);
 float tempInside;
+
+float temp100cm;
+float temp50cm;
+float temp20cm;
+float temp10cm;
+float temp5cm;
+float tempPrizemni5cm;
 //-----------Interní proměnné------------------------------
 bool dataStrecha;
 bool dataPlot;
@@ -216,6 +223,30 @@ String processor(const String &var)
   else if (var == "Plot_barometerBMP180")
   {
     return String(Plot_barometerBMP180);
+  }
+  else if (var == "tempPrizemni5cm")
+  {
+    return String(tempPrizemni5cm);
+  }
+  else if (var == "temp5cm")
+  {
+    return String(temp5cm);
+  }
+  else if (var == "temp10cm")
+  {
+    return String(temp10cm);
+  }
+  else if (var == "temp20cm")
+  {
+    return String(temp20cm);
+  }
+  else if (var == "temp50cm")
+  {
+    return String(temp50cm);
+  }
+  else if (var == "temp100cm")
+  {
+    return String(temp100cm);
   }
 
   return String();
@@ -421,6 +452,12 @@ void teplota()
   // adresy 1-wire čidel
 
   DeviceAddress senzorMain = {0x28, 0xFF, 0x64, 0x1D, 0xF9, 0x87, 0xA8, 0xCC};
+  DeviceAddress Senzor100cm = {0x28, 0xAB, 0xA0, 0x77, 0x91, 0x11, 0x02, 0xB0};
+  DeviceAddress Senzor50cm = {0x28, 0x89, 0x92, 0x77, 0x91, 0x11, 0x02, 0x6F};
+  DeviceAddress Senzor20cm = {0x28, 0xA7, 0xE8, 0x77, 0x91, 0x09, 0x02, 0x80};
+  DeviceAddress Senzor10cm = {0x28, 0xB9, 0x77, 0x77, 0x91, 0x14, 0x02, 0x75};
+  DeviceAddress Senzor5cm = {0x28, 0xF4, 0xD0, 0x77, 0x91, 0x09, 0x02, 0x4D};
+  DeviceAddress SenzorPrizemni5cm = {0x28, 0x30, 0xA4, 0x45, 0x92, 0x07, 0x02, 0x0B};
 
   /*---------Proměnné-------------------------*/
   /*nastavení rozlišení čidel 9 bit  - 0,5°C
@@ -433,6 +470,27 @@ void teplota()
   senzoryDS.requestTemperatures();
 
   tempInside = senzoryDS.getTempC(senzorMain);
+  float tempZcidla100cm = senzoryDS.getTempC(Senzor100cm);
+  float tempZcidla50cm = senzoryDS.getTempC(Senzor50cm);
+  float tempZcidla20cm = senzoryDS.getTempC(Senzor20cm);
+  float tempZcidla10cm = senzoryDS.getTempC(Senzor10cm);
+  float tempZcidla5cm = senzoryDS.getTempC(Senzor5cm);
+  float tempZcidlaPrizemni5cm = senzoryDS.getTempC(SenzorPrizemni5cm);
+
+  // validace teplot, teplota se do promněné uloží pouze, když je v rozsahu -50 - 70°C
+
+  if ((-50 < tempZcidla100cm) && (tempZcidla100cm < 70))
+    temp100cm = tempZcidla100cm;
+  if ((-50 < tempZcidla50cm) && (tempZcidla50cm < 70))
+    temp50cm = tempZcidla50cm;
+  if ((-50 < tempZcidla20cm) && (tempZcidla20cm < 70))
+    temp20cm = tempZcidla20cm;
+  if ((-50 < tempZcidla10cm) && (tempZcidla10cm < 70))
+    temp10cm = tempZcidla10cm;
+  if ((-50 < tempZcidla5cm) && (tempZcidla5cm < 70))
+    temp5cm = tempZcidla5cm;
+  if ((-50 < tempZcidlaPrizemni5cm) && (tempZcidlaPrizemni5cm < 70))
+    tempPrizemni5cm = tempZcidlaPrizemni5cm;
 }
 void logSDCard()
 {
@@ -447,9 +505,21 @@ void logSDCard()
   {
 
     Serial.println(now.unixtime());
-
-    String dataMessage = String(now.unixtime()) + "," + String(Strecha_winspeed) + "," +
-                         String(Strecha_windir) + "," + String(tempInside) + "\r\n";
+    writeFile(SD, "/data.txt", "Date, outTemp, outHumidity, barometer, windSpeed, rain, windDir, extraTemp1, extraTemp2, soilTemp1, soilTemp2, soilTemp3, soilTemp4, supplyVoltage \r\n");
+    String dataMessage = String(now.unixtime()) + "," +
+                         String(Plot_tempDS18B20) + "," +
+                         String(Plot_humSHT31) + "," +
+                         String(Plot_barometerBMP180) + "," +
+                         String(Strecha_winspeed) + "," +
+                         String(Strecha_srazky) + "," +
+                         String(Strecha_windir) + "," +
+                         String(tempPrizemni5cm) + "," +
+                         String(temp5cm) + "," +
+                         String(temp10cm) + "," +
+                         String(temp20cm) + "," +
+                         String(temp50cm) + "," +
+                         String(temp100cm) + "," +
+                         String(napetiVstup) + "\r\n";
     Serial.print("Save data: ");
     Serial.println(dataMessage);
     appendFile(SD, "/data.txt", dataMessage.c_str());
@@ -465,6 +535,15 @@ void mqtt()
     client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
     DynamicJsonDocument JSONencoder(1024);
     char buffer[256];
+    if (dataPlot == true)
+    {
+      JSONencoder["outTemp"] = Plot_tempDS18B20;
+      JSONencoder["outHumidity"] = Plot_humSHT31;
+      JSONencoder["barometer"] = Plot_barometerBMP180;
+      JSONencoder["signal3"] = Plot_signal;
+
+      dataPlot = false;
+    }
     if (dataStrecha == true)
     {
       JSONencoder["windSpeed"] = Strecha_winspeed;
@@ -475,19 +554,16 @@ void mqtt()
       dataStrecha = false;
     }
 
-    if (dataPlot == true)
-    {
-      JSONencoder["outTemp"] = Plot_tempDS18B20;
-      JSONencoder["outHumidity"] = Plot_humSHT31;
-      JSONencoder["barometer"] = Plot_barometerBMP180;
-      JSONencoder["signal3"] = Plot_signal;
-
-      dataPlot = false;
-    }
-
     JSONencoder["supplyVoltage"] = napetiVstup;
     JSONencoder["proud"] = proud;
     JSONencoder["prikon"] = prikon;
+
+    JSONencoder["extraTemp1"] = tempPrizemni5cm;
+    JSONencoder["extraTemp2"] = temp5cm;
+    JSONencoder["soilTemp1"] = temp10cm;
+    JSONencoder["soilTemp2"] = temp20cm;
+    JSONencoder["soilTemp3"] = temp50cm;
+    JSONencoder["soilTemp4"] = temp100cm;
 
     long rssi = WiFi.RSSI();
     JSONencoder["signal1"] = rssi;
