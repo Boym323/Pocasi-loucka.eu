@@ -12,7 +12,7 @@ Adafruit_SHT31 sht31 = Adafruit_SHT31();
 #include <Adafruit_BMP280.h>
 #define BMP280_ADDRESS (0x76)
 #define BMP280_CHIPID (0x58)
-#define ALTITUDE 425 // nadmořská výška stanice
+#define ALTITUDE 430 // nadmořská výška stanice
 Adafruit_BMP280 bmp; // I2C
 
 #include <OneWire.h>
@@ -24,8 +24,15 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
 int casOdeslani = 30; //sekund
+int casNacteniDat = 10; //sekund
 
 float tempDS18B20;
+float tempBMP180;
+float pressureBMP180;
+float barometerBMP180;
+float tempSHT31;
+int humSHT31;
+int Signal;
 
 Scheduler userScheduler; // to control your personal task
 painlessMesh mesh;
@@ -34,26 +41,35 @@ painlessMesh mesh;
 void receivedCallback(uint32_t from, String &msg);
 
 size_t logServerId = 0;
+Task nacteniDatCidla(casNacteniDat * 1000, TASK_FOREVER, []()
+                     {
+                       DeviceAddress Teplota2m = {0x28, 0x04, 0xB5, 0x79, 0xA2, 0x01, 0x03, 0xFB};
+                       sensors.setResolution(Teplota2m, 10);
+                       sensors.requestTemperatures();
+                       tempDS18B20 = sensors.getTempC(Teplota2m);
+                       tempBMP180 = bmp.readTemperature();
+                       pressureBMP180 = bmp.readPressure() / 100;
+                       barometerBMP180 = bmp.seaLevelForAltitude(ALTITUDE, (bmp.readPressure() / 100)-3);
+                       tempSHT31 = sht31.readTemperature();
+                       humSHT31 = sht31.readHumidity();
+                       Signal = WiFi.RSSI();
+                     });
 
 // Send message to the logServer every 10 seconds
 Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
                    {
-                     DeviceAddress Teplota2m = {0x28, 0x04, 0xB5, 0x79, 0xA2, 0x01, 0x03, 0xFB};
-                     sensors.setResolution(Teplota2m, 10);
-                     sensors.requestTemperatures();
-                     tempDS18B20 = sensors.getTempC(Teplota2m);
-
                      DynamicJsonDocument jsonBuffer(1024);
                      JsonObject msg = jsonBuffer.to<JsonObject>();
                      msg["Plot"] = "Plot";
                      msg["Kompilace"] = __DATE__ " " __TIME__;
                      msg["tempDS18B20"] = tempDS18B20;
-                     msg["tempBMP180"] = bmp.readTemperature();
-                     msg["pressureBMP180"] = bmp.readPressure() / 100;
-                     msg["barometerBMP180"] = bmp.seaLevelForAltitude(ALTITUDE, bmp.readPressure() / 100);
-                     msg["tempSHT31"] = sht31.readTemperature();
-                     msg["humSHT31"] = sht31.readHumidity();
-                     msg["Signal"] = WiFi.RSSI();
+
+                     msg["tempBMP180"] = tempBMP180;
+                     msg["pressureBMP180"] = pressureBMP180;
+                     msg["barometerBMP180"] = barometerBMP180;
+                     msg["tempSHT31"] = tempSHT31;
+                     msg["humSHT31"] = humSHT31;
+                     msg["Signal"] = Signal;
                      String str;
                      serializeJson(msg, str);
 
@@ -88,6 +104,8 @@ void setup()
   mesh.onReceive(&receivedCallback);
   mesh.initOTAReceive("Plot");
 
+  userScheduler.addTask(nacteniDatCidla);
+  nacteniDatCidla.enable();
   userScheduler.addTask(myLoggingTask);
   myLoggingTask.enable();
 }

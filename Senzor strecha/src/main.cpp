@@ -127,7 +127,7 @@ Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
 void setup()
 {
   Serial.begin(115200);
-
+  delay(3000);
   Wire.begin();
   adc.setVoltageRange_mV(ADS1115_RANGE_6144); //comment line/change parameter to change range
   adc.setCompareChannels(ADS1115_COMP_0_GND);

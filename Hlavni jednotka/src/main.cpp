@@ -273,7 +273,7 @@ void setup()
   // The data rate must be much higher than the "link" serial port
   Serial.begin(115200);
   //-----------------Bridge port
-  Serial2.begin(57600, SERIAL_8N1, RXD2, TXD2);
+  Serial2.begin(4800, SERIAL_8N1, RXD2, TXD2);
 
   senzoryDS.begin(); //inicializace Dallas DS18B20
 
@@ -336,7 +336,7 @@ void setup()
   {
     Serial.println("File doens't exist");
     Serial.println("Creating file...");
-    writeFile(SD, "/data.txt", "Date, WinSpeed, WinDir, NapetiWinDir \r\n");
+    writeFile(SD, "/data.txt", "Date, outTemp, outHumidity, barometer, windSpeed, rain, windDir, extraTemp1, extraTemp2, soilTemp1, soilTemp2, soilTemp3, soilTemp4, supplyVoltage \r\n");
   }
   else
   {
@@ -389,7 +389,7 @@ void PrijemDat()
   {
     // Stream & input;
 
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<1024> doc;
 
     /*  ReadLoggingStream loggingStream(Serial2, Serial);
     deserializeJson(doc, loggingStream);*/
@@ -505,7 +505,7 @@ void logSDCard()
   {
 
     Serial.println(now.unixtime());
-    writeFile(SD, "/data.txt", "Date, outTemp, outHumidity, barometer, windSpeed, rain, windDir, extraTemp1, extraTemp2, soilTemp1, soilTemp2, soilTemp3, soilTemp4, supplyVoltage \r\n");
+
     String dataMessage = String(now.unixtime()) + "," +
                          String(Plot_tempDS18B20) + "," +
                          String(Plot_humSHT31) + "," +
@@ -533,8 +533,8 @@ void mqtt()
 
     client.setServer(mqttServer, mqttPort);
     client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
-    DynamicJsonDocument JSONencoder(1024);
-    char buffer[256];
+    DynamicJsonDocument JSONencoder(512);
+    char buffer[512];
     if (dataPlot == true)
     {
       JSONencoder["outTemp"] = Plot_tempDS18B20;
