@@ -505,7 +505,7 @@ void logSDCard()
   {
 
     Serial.println(now.unixtime());
-
+    teplota();
     String dataMessage = String(now.unixtime()) + "," +
                          String(Plot_tempDS18B20) + "," +
                          String(Plot_humSHT31) + "," +
@@ -530,7 +530,7 @@ void mqtt()
 {
   if (novaData == true)
   {
-
+    teplota();
     client.setServer(mqttServer, mqttPort);
     client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
     DynamicJsonDocument JSONencoder(512);
@@ -587,7 +587,7 @@ void mqtt()
 void loop()
 {
   INA219napajeni();
-  teplota();
+
   //  ntp2rtc();//aktualizace času v RTC
   logSDCard();
   PrijemDat();
