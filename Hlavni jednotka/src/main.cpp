@@ -111,7 +111,6 @@ float tempPrizemni5cm;
 //-----------Interní proměnné------------------------------
 bool dataStrecha;
 bool dataPlot;
-bool novaData;
 bool logNaKartu;
 
 //-----------Proměnné na data z meshe-----------------------
@@ -336,7 +335,7 @@ void setup()
   {
     Serial.println("File doens't exist");
     Serial.println("Creating file...");
-    writeFile(SD, "/data.txt", "Date, outTemp, outHumidity, barometer, windSpeed, rain, windDir, extraTemp1, extraTemp2, soilTemp1, soilTemp2, soilTemp3, soilTemp4, supplyVoltage \r\n");
+    writeFile(SD, "/data.txt", "dateTime,outTemp,outHumidity,barometer,windSpeed,rain,windDir,extraTemp1,extraTemp2,soilTemp1,soilTemp2,soilTemp3,soilTemp4,supplyVoltage\r\n");
   }
   else
   {
@@ -396,20 +395,6 @@ void PrijemDat()
 
     deserializeJson(doc, Serial2);
 
-    if (doc.containsKey("Strecha"))
-
-    {
-      const char *kompilace;
-      kompilace = doc["Kompilace"];
-      Strecha_winspeed = doc["WinSpeed"];
-      Strecha_srazky = doc["Rain"];
-      Strecha_windir = doc["WinDir"];
-      Strecha_signal = doc["Signal"];
-      NapetiWinDir = doc["NapetiWinDir"];
-      dataStrecha = true;
-      novaData = true;
-      Strecha_kompilace = String(kompilace);
-    }
     if (doc.containsKey("Plot"))
 
     {
@@ -423,8 +408,20 @@ void PrijemDat()
       Plot_humSHT31 = doc["humSHT31"];
       Plot_signal = doc["Signal"];
       dataPlot = true;
-      novaData = true;
       Plot_kompilace = String(kompilace);
+    }
+    if (doc.containsKey("Strecha"))
+
+    {
+      const char *kompilace;
+      kompilace = doc["Kompilace"];
+      Strecha_winspeed = doc["WinSpeed"];
+      Strecha_srazky = doc["Rain"];
+      Strecha_windir = doc["WinDir"];
+      Strecha_signal = doc["Signal"];
+      NapetiWinDir = doc["NapetiWinDir"];
+      dataStrecha = true;
+      Strecha_kompilace = String(kompilace);
     }
   }
 }
@@ -505,7 +502,7 @@ void logSDCard()
   {
 
     Serial.println(now.unixtime());
-    teplota();
+
     String dataMessage = String(now.unixtime()) + "," +
                          String(Plot_tempDS18B20) + "," +
                          String(Plot_humSHT31) + "," +
@@ -528,9 +525,8 @@ void logSDCard()
 }
 void mqtt()
 {
-  if (novaData == true)
+  if (dataPlot == true || dataStrecha == true)
   {
-    teplota();
     client.setServer(mqttServer, mqttPort);
     client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
     DynamicJsonDocument JSONencoder(512);
@@ -580,14 +576,13 @@ void mqtt()
     {
       Serial.println("Error sending message");
     }
-    novaData = false;
   }
 }
 
 void loop()
 {
   INA219napajeni();
-
+  teplota();
   //  ntp2rtc();//aktualizace času v RTC
   logSDCard();
   PrijemDat();
