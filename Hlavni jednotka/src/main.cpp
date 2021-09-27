@@ -112,7 +112,9 @@ float tempPrizemni5cm;
 bool dataStrecha;
 bool dataPlot;
 bool logNaKartu;
-
+bool novaData;
+int casStrecha;
+int casPlot;
 //-----------Proměnné na data z meshe-----------------------
 String Strecha_kompilace;
 float Strecha_winspeed;
@@ -247,7 +249,14 @@ String processor(const String &var)
   {
     return String(temp100cm);
   }
-
+  else if (var == "casStrecha")
+  {
+    return String((millis() - casStrecha) / 1000);
+  }
+  else if (var == "casPlot")
+  {
+    return String((millis() - casPlot) / 1000);
+  }
   return String();
 }
 
@@ -409,6 +418,8 @@ void PrijemDat()
       Plot_signal = doc["Signal"];
       dataPlot = true;
       Plot_kompilace = String(kompilace);
+      casPlot = millis();
+      novaData = true;
     }
     if (doc.containsKey("Strecha"))
 
@@ -422,6 +433,8 @@ void PrijemDat()
       NapetiWinDir = doc["NapetiWinDir"];
       dataStrecha = true;
       Strecha_kompilace = String(kompilace);
+      casStrecha = millis();
+      novaData = true;
     }
   }
 }
@@ -525,30 +538,26 @@ void logSDCard()
 }
 void mqtt()
 {
-  if (dataPlot == true || dataStrecha == true)
+  if (dataPlot == true && dataStrecha == true)
   {
     client.setServer(mqttServer, mqttPort);
     client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
-    DynamicJsonDocument JSONencoder(512);
-    char buffer[512];
-    if (dataPlot == true)
-    {
-      JSONencoder["outTemp"] = Plot_tempDS18B20;
-      JSONencoder["outHumidity"] = Plot_humSHT31;
-      JSONencoder["barometer"] = Plot_barometerBMP180;
-      JSONencoder["signal3"] = Plot_signal;
+    DynamicJsonDocument JSONencoder(488);
+    char buffer[488];
 
-      dataPlot = false;
-    }
-    if (dataStrecha == true)
-    {
-      JSONencoder["windSpeed"] = Strecha_winspeed;
-      JSONencoder["rain"] = Strecha_srazky;
-      JSONencoder["windDir"] = Strecha_windir;
-      JSONencoder["signal2"] = Strecha_signal;
+    JSONencoder["outTemp"] = Plot_tempDS18B20;
+    JSONencoder["outHumidity"] = Plot_humSHT31;
+    JSONencoder["barometer"] = Plot_barometerBMP180;
+    JSONencoder["signal3"] = Plot_signal;
 
-      dataStrecha = false;
-    }
+    dataPlot = false;
+
+    JSONencoder["windSpeed"] = Strecha_winspeed;
+    JSONencoder["rain"] = Strecha_srazky;
+    JSONencoder["windDir"] = Strecha_windir;
+    JSONencoder["signal2"] = Strecha_signal;
+
+    dataStrecha = false;
 
     JSONencoder["supplyVoltage"] = napetiVstup;
     JSONencoder["proud"] = proud;
@@ -560,7 +569,7 @@ void mqtt()
     JSONencoder["soilTemp2"] = temp20cm;
     JSONencoder["soilTemp3"] = temp50cm;
     JSONencoder["soilTemp4"] = temp100cm;
-
+    novaData = false;
     long rssi = WiFi.RSSI();
     JSONencoder["signal1"] = rssi;
     serializeJson(JSONencoder, buffer);
