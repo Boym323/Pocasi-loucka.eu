@@ -538,27 +538,32 @@ void logSDCard()
 }
 void mqtt()
 {
-  if (dataPlot == true && dataStrecha == true)
+  if (novaData == true)
   {
     client.setServer(mqttServer, mqttPort);
     client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
     DynamicJsonDocument JSONencoder(488);
     char buffer[488];
 
-    JSONencoder["outTemp"] = Plot_tempDS18B20;
-    JSONencoder["outHumidity"] = Plot_humSHT31;
-    JSONencoder["barometer"] = Plot_barometerBMP180;
-    JSONencoder["signal3"] = Plot_signal;
+    if (dataPlot == true)
+    {
+      JSONencoder["outTemp"] = Plot_tempDS18B20;
+      JSONencoder["outHumidity"] = Plot_humSHT31;
+      JSONencoder["barometer"] = Plot_barometerBMP180;
+      JSONencoder["signal3"] = Plot_signal;
 
-    dataPlot = false;
+      dataPlot = false;
+    }
+    if (dataStrecha == true)
+    {
+      JSONencoder["windSpeed"] = Strecha_winspeed;
+      JSONencoder["rain"] = Strecha_srazky;
+      JSONencoder["windDir"] = Strecha_windir;
+      JSONencoder["signal2"] = Strecha_signal;
 
-    JSONencoder["windSpeed"] = Strecha_winspeed;
-    JSONencoder["rain"] = Strecha_srazky;
-    JSONencoder["windDir"] = Strecha_windir;
-    JSONencoder["signal2"] = Strecha_signal;
-
-    dataStrecha = false;
-
+      dataStrecha = false;
+    }
+    
     JSONencoder["supplyVoltage"] = napetiVstup;
     JSONencoder["proud"] = proud;
     JSONencoder["prikon"] = prikon;
