@@ -39,12 +39,6 @@ void setup()
   mesh.init(MESH_PREFIX, MESH_PASSWORD, &userScheduler, MESH_PORT, WIFI_AP_STA, 6);
   mesh.onReceive(&receivedCallback);
 
-  mesh.onNewConnection([](size_t nodeId)
-                       { Serial.printf("New Connection %u\n", nodeId); });
-
-  mesh.onDroppedConnection([](size_t nodeId)
-                           { Serial.printf("Dropped Connection %u\n", nodeId); });
-
   mesh.initOTAReceive("bridge");
 
   // Add the task to the your scheduler
@@ -60,5 +54,8 @@ void loop()
 
 void receivedCallback(uint32_t from, String &msg)
 {
-  Serial.printf("logServer: Received from %u msg=%s\n", from, msg.c_str());
+  // Serial is the data link to the main ESP32. Keep it machine-readable:
+  // exactly one JSON document per line, with no debug text mixed in.
+  (void)from;
+  Serial.println(msg);
 }
