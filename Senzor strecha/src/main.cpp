@@ -19,7 +19,7 @@ volatile unsigned long lastWindClick;
 float windspeed;
 float srazky;
 float napetiWindDir;
-String windDir;
+float windDir = 0.0f;
 
 IRAM_ATTR void WindSpeed()
 {
@@ -55,48 +55,56 @@ float readChannel(ADS1115_MUX channel)
 
 Task nacteniDatCidla(casOdeslani * 1000, TASK_FOREVER, []()
                      {
-                       //Calculate Wind Speed (klicks/interval * 2,4 kmh)
-                       windspeed = ((windcnt / casOdeslani) * 2.4);
+                       // Take an atomic snapshot because both counters are changed by ISRs.
+                       noInterrupts();
+                       const unsigned int windClicks = windcnt;
+                       const unsigned int rainClicks = raincnt;
                        windcnt = 0;
-                       //Calculate Rain
-                       srazky = raincnt * (0.2794 / 10);
                        raincnt = 0;
+                       interrupts();
+
+                       // One anemometer click per second corresponds to 2.4 km/h.
+                       // Force floating-point division so low wind speeds are not truncated to zero.
+                       windspeed = (static_cast<float>(windClicks) / static_cast<float>(casOdeslani)) * 2.4f;
+
+                       // One rain-gauge bucket tip corresponds to 0.2794 mm.
+                       srazky = static_cast<float>(rainClicks) * 0.2794f;
                        //Calculate win direction
                        napetiWindDir = readChannel(ADS1115_COMP_0_GND);
                        if (napetiWindDir < 0.3216)
-                         windDir = "112.5";
+                         windDir = 112.5f;
                        else if (napetiWindDir < 0.4092)
-                         windDir = "67.5";
+                         windDir = 67.5f;
                        else if (napetiWindDir < 0.4545)
-                         windDir = "90";
+                         windDir = 90.0f;
                        else if (napetiWindDir < 0.6166)
-                         windDir = "157.5";
+                         windDir = 157.5f;
                        else if (napetiWindDir < 0.9016)
-                         windDir = "135";
+                         windDir = 135.0f;
                        else if (napetiWindDir < 1.1936)
-                         windDir = "202.5";
+                         windDir = 202.5f;
                        else if (napetiWindDir < 1.4029)
-                         windDir = "180";
+                         windDir = 180.0f;
                        else if (napetiWindDir < 1.9821)
-                         windDir = "22.5";
+                         windDir = 22.5f;
                        else if (napetiWindDir < 2.2527)
-                         windDir = "45";
+                         windDir = 45.0f;
                        else if (napetiWindDir < 2.9268)
-                         windDir = "247.5";
+                         windDir = 247.5f;
                        else if (napetiWindDir < 3.0769)
-                         windDir = "225";
+                         windDir = 225.0f;
                        else if (napetiWindDir < 3.4314)
-                         windDir = "337.5";
+                         windDir = 337.5f;
                        else if (napetiWindDir < 3.8372)
-                         windDir = "0";
+                         windDir = 0.0f;
                        else if (napetiWindDir < 4.0407)
-                         windDir = "292.5";
+                         windDir = 292.5f;
                        else if (napetiWindDir < 4.3324)
-                         windDir = "315";
+                         windDir = 315.0f;
                        else if (napetiWindDir < 4.6154)
-                         windDir = "270";
+                         windDir = 270.0f;
                        else
-                         windDir = "0";
+                         windDir = 0.0f;
                      });
 
 Task myLoggingTask(casOdeslani * 1000, TASK_FOREVER, []()
