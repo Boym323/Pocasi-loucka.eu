@@ -128,6 +128,7 @@ String Strecha_kompilace;
 float Strecha_winspeed;
 float Strecha_srazky;
 float Strecha_srazkySD = 0.0f;
+float Strecha_srazkyMQTT = 0.0f;
 float Strecha_windir;
 int Strecha_signal;
 float NapetiWinDir;
@@ -430,6 +431,7 @@ void processSerialMessage(const String &message)
     Strecha_winspeed = doc["WinSpeed"] | Strecha_winspeed;
     Strecha_srazky = doc["Rain"] | 0.0f;
     Strecha_srazkySD += Strecha_srazky;
+    Strecha_srazkyMQTT += Strecha_srazky;
     Strecha_windir = doc["WinDir"] | Strecha_windir;
     Strecha_signal = doc["Signal"] | Strecha_signal;
     NapetiWinDir = doc["NapetiWinDir"] | NapetiWinDir;
@@ -602,7 +604,7 @@ void mqtt()
   if (sendStrecha)
   {
     JSONencoder["windSpeed"] = Strecha_winspeed;
-    JSONencoder["rain"] = Strecha_srazky;
+    JSONencoder["rain"] = Strecha_srazkyMQTT;
     JSONencoder["windDir"] = Strecha_windir;
     JSONencoder["signal2"] = Strecha_signal;
   }
@@ -629,7 +631,10 @@ void mqtt()
     if (sendPlot)
       dataPlot = false;
     if (sendStrecha)
+    {
       dataStrecha = false;
+      Strecha_srazkyMQTT = 0.0f;
+    }
     novaData = dataPlot || dataStrecha;
   }
   else
