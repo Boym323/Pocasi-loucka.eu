@@ -276,6 +276,9 @@ unsigned long interval = 30000;
 
 AsyncWebServer server(80);
 
+void INA219napajeni();
+void teplota();
+
 void setup()
 {
   Wire.begin(); //RTC
