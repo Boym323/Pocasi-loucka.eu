@@ -6,8 +6,14 @@
 #include <ArduinoJson.h>
 #include "SPIFFS.h" //kvůli webu ve spiffs
 
-#include "credentials.h" //prihlasováky + nastavení
-#include <StreamUtils.h> // loging Serial2Serial
+#include "credentials.h" // prihlasovaky + nastaveni
+
+#ifndef WEB_USERNAME
+#define WEB_USERNAME mqttUser
+#endif
+#ifndef WEB_PASSWORD
+#define WEB_PASSWORD mqttPassword
+#endif
 
 //--------------SD karta---------------------
 #define SD_CS 5
@@ -38,25 +44,20 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
 }
 
 // Append data to the SD card (DON'T MODIFY THIS FUNCTION)
-void appendFile(fs::FS &fs, const char *path, const char *message)
+bool appendFile(fs::FS &fs, const char *path, const char *message)
 {
   Serial.printf("Appending to file: %s\n", path);
-
   File file = fs.open(path, FILE_APPEND);
   if (!file)
   {
     Serial.println("Failed to open file for appending");
-    return;
+    return false;
   }
-  if (file.print(message))
-  {
-    Serial.println("Message appended");
-  }
-  else
-  {
-    Serial.println("Append failed");
-  }
+
+  const bool ok = file.print(message);
+  Serial.println(ok ? "Message appended" : "Append failed");
   file.close();
+  return ok;
 }
 //-------------MQTT-------------------------------------
 #include <PubSubClient.h> //MQTT
@@ -109,16 +110,24 @@ float temp10cm;
 float temp5cm;
 float tempPrizemni5cm;
 //-----------Interní proměnné------------------------------
-bool dataStrecha;
-bool dataPlot;
-bool logNaKartu;
-bool novaData;
-int casStrecha;
-int casPlot;
+bool dataStrecha = false;
+bool dataPlot = false;
+bool novaData = false;
+bool sdAvailable = false;
+unsigned long casStrecha = 0;
+unsigned long casPlot = 0;
+unsigned long previousPowerMillis = 0;
+unsigned long previousTemperatureMillis = 0;
+unsigned long previousMqttAttempt = 0;
+const unsigned long POWER_INTERVAL_MS = 1000;
+const unsigned long TEMPERATURE_INTERVAL_MS = 10000;
+const unsigned long MQTT_RETRY_INTERVAL_MS = 5000;
+String serial2Buffer;
 //-----------Proměnné na data z meshe-----------------------
 String Strecha_kompilace;
 float Strecha_winspeed;
 float Strecha_srazky;
+float Strecha_srazkySD = 0.0f;
 float Strecha_windir;
 int Strecha_signal;
 float NapetiWinDir;
@@ -129,7 +138,7 @@ float Plot_tempBMP180;
 float Plot_pressureBMP180;
 float Plot_barometerBMP180;
 float Plot_tempSHT31;
-int Plot_humSHT31;
+float Plot_humSHT31;
 int Plot_signal;
 
 //-----------------Processor pro web-----------------
@@ -191,7 +200,7 @@ String processor(const String &var)
   }
   else if (var == "StavSD")
   {
-    return String(SD.begin(SD_CS));
+    return sdAvailable ? "OK" : "ERROR";
   }
   else if (var == "Plot_signal")
   {
@@ -251,11 +260,11 @@ String processor(const String &var)
   }
   else if (var == "casStrecha")
   {
-    return String((millis() - casStrecha) / 1000);
+    return casStrecha == 0 ? "N/A" : String((millis() - casStrecha) / 1000);
   }
   else if (var == "casPlot")
   {
-    return String((millis() - casPlot) / 1000);
+    return casPlot == 0 ? "N/A" : String((millis() - casPlot) / 1000);
   }
   return String();
 }
@@ -302,55 +311,55 @@ void setup()
     return;
   }
 
-  //-----------------async web--------------- není nutno použít
-
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SPIFFS, "/index.html", String(), false, processor); });
-  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SD, "/data.txt", "text/plain"); });
-  server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              request->send(200, "text/plain", "OK");
-              delay(2000);
-              ESP.restart();
-            });
-
-  AsyncElegantOTA.begin(&server); // Start ElegantOTA
-  server.begin();
-
-  // Initialize SD card
-  SD.begin(SD_CS);
-  if (!SD.begin(SD_CS))
+  // Initialize SD card once. The status page never re-mounts it.
+  sdAvailable = SD.begin(SD_CS);
+  if (!sdAvailable || SD.cardType() == CARD_NONE)
   {
-    Serial.println("Card Mount Failed");
-    return;
-  }
-  uint8_t cardType = SD.cardType();
-  if (cardType == CARD_NONE)
-  {
-    Serial.println("No SD card attached");
-    return;
-  }
-  Serial.println("Initializing SD card...");
-  if (!SD.begin(SD_CS))
-  {
-    Serial.println("ERROR - SD card initialization failed!");
-    return; // init failed
-  }
-  // If the data.txt file doesn't exist
-  // Create a file on the SD card and write the data labels
-  File file = SD.open("/data.txt");
-  if (!file)
-  {
-    Serial.println("File doens't exist");
-    Serial.println("Creating file...");
-    writeFile(SD, "/data.txt", "dateTime,outTemp,outHumidity,barometer,windSpeed,rain,windDir,extraTemp1,extraTemp2,soilTemp1,soilTemp2,soilTemp3,soilTemp4,supplyVoltage\r\n");
+    sdAvailable = false;
+    Serial.println("SD card unavailable");
   }
   else
   {
-    Serial.println("File already exists");
+    Serial.println("SD card initialized");
+    File file = SD.open("/data.txt");
+    if (!file)
+    {
+      Serial.println("Creating /data.txt");
+      writeFile(SD, "/data.txt", "dateTime,outTemp,outHumidity,barometer,windSpeed,rain,windDir,extraTemp1,extraTemp2,soilTemp1,soilTemp2,soilTemp3,soilTemp4,supplyVoltage\r\n");
+    }
+    else
+    {
+      file.close();
+    }
   }
-  file.close();
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SPIFFS, "/index.html", String(), false, processor); });
+
+  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+              if (!request->authenticate(WEB_USERNAME, WEB_PASSWORD))
+                return request->requestAuthentication();
+              if (!sdAvailable)
+                return request->send(503, "text/plain", "SD card unavailable");
+              request->send(SD, "/data.txt", "text/plain");
+            });
+
+  server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request)
+            {
+              if (!request->authenticate(WEB_USERNAME, WEB_PASSWORD))
+                return request->requestAuthentication();
+              request->send(200, "text/plain", "Restarting");
+              delay(250);
+              ESP.restart();
+            });
+
+  AsyncElegantOTA.begin(&server, WEB_USERNAME, WEB_PASSWORD);
+  server.begin();
+
+  client.setServer(mqttServer, mqttPort);
+  INA219napajeni();
+  teplota();
 }
 
 void ntp2rtc()
@@ -389,52 +398,71 @@ void ntp2rtc()
   }
 }
 
+void processSerialMessage(const String &message)
+{
+  StaticJsonDocument<1024> doc;
+  const DeserializationError error = deserializeJson(doc, message);
+  if (error)
+  {
+    Serial.print("Bridge JSON error: ");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  if (doc.containsKey("Plot"))
+  {
+    Plot_kompilace = String(doc["Kompilace"] | "");
+    Plot_tempDS18B20 = doc["tempDS18B20"] | Plot_tempDS18B20;
+    Plot_tempBMP180 = doc["tempBMP180"] | Plot_tempBMP180;
+    Plot_pressureBMP180 = doc["pressureBMP180"] | Plot_pressureBMP180;
+    Plot_barometerBMP180 = doc["barometerBMP180"] | Plot_barometerBMP180;
+    Plot_tempSHT31 = doc["tempSHT31"] | Plot_tempSHT31;
+    Plot_humSHT31 = doc["humSHT31"] | Plot_humSHT31;
+    Plot_signal = doc["Signal"] | Plot_signal;
+    dataPlot = true;
+    casPlot = millis();
+    novaData = true;
+  }
+
+  if (doc.containsKey("Strecha"))
+  {
+    Strecha_kompilace = String(doc["Kompilace"] | "");
+    Strecha_winspeed = doc["WinSpeed"] | Strecha_winspeed;
+    Strecha_srazky = doc["Rain"] | 0.0f;
+    Strecha_srazkySD += Strecha_srazky;
+    Strecha_windir = doc["WinDir"] | Strecha_windir;
+    Strecha_signal = doc["Signal"] | Strecha_signal;
+    NapetiWinDir = doc["NapetiWinDir"] | NapetiWinDir;
+    dataStrecha = true;
+    casStrecha = millis();
+    novaData = true;
+  }
+}
+
 void PrijemDat()
 {
-  // Kontrola, zda přicházejí data
-
-  if (Serial2.available())
+  while (Serial2.available())
   {
-    // Stream & input;
+    const char c = static_cast<char>(Serial2.read());
+    if (c == '\r')
+      continue;
 
-    StaticJsonDocument<1024> doc;
-
-    /*  ReadLoggingStream loggingStream(Serial2, Serial);
-    deserializeJson(doc, loggingStream);*/
-
-    deserializeJson(doc, Serial2);
-
-    if (doc.containsKey("Plot"))
-
+    if (c == '\n')
     {
-      const char *kompilace;
-      kompilace = doc["Kompilace"];
-      Plot_tempDS18B20 = doc["tempDS18B20"];
-      Plot_tempBMP180 = doc["tempBMP180"];
-      Plot_pressureBMP180 = doc["pressureBMP180"];
-      Plot_barometerBMP180 = doc["barometerBMP180"];
-      Plot_tempSHT31 = doc["tempSHT31"];
-      Plot_humSHT31 = doc["humSHT31"];
-      Plot_signal = doc["Signal"];
-      dataPlot = true;
-      Plot_kompilace = String(kompilace);
-      casPlot = millis();
-      novaData = true;
+      if (serial2Buffer.length() > 0)
+      {
+        processSerialMessage(serial2Buffer);
+        serial2Buffer = "";
+      }
+      continue;
     }
-    if (doc.containsKey("Strecha"))
 
+    if (serial2Buffer.length() < 1024)
+      serial2Buffer += c;
+    else
     {
-      const char *kompilace;
-      kompilace = doc["Kompilace"];
-      Strecha_winspeed = doc["WinSpeed"];
-      Strecha_srazky = doc["Rain"];
-      Strecha_windir = doc["WinDir"];
-      Strecha_signal = doc["Signal"];
-      NapetiWinDir = doc["NapetiWinDir"];
-      dataStrecha = true;
-      Strecha_kompilace = String(kompilace);
-      casStrecha = millis();
-      novaData = true;
+      Serial.println("Bridge frame too long, dropping");
+      serial2Buffer = "";
     }
   }
 }
@@ -504,102 +532,133 @@ void teplota()
 }
 void logSDCard()
 {
+  if (!sdAvailable)
+    return;
+
+  static uint32_t lastLoggedSlot = UINT32_MAX;
   DateTime now = myRTC.now();
 
-  if (now.second() != 0)
+  if (now.minute() % 5 != 0)
+    return;
+
+  const uint32_t currentSlot = now.unixtime() / 300UL;
+  if (currentSlot == lastLoggedSlot)
+    return;
+
+  String dataMessage = String(now.unixtime()) + "," +
+                       String(Plot_tempDS18B20) + "," +
+                       String(Plot_humSHT31) + "," +
+                       String(Plot_barometerBMP180) + "," +
+                       String(Strecha_winspeed) + "," +
+                       String(Strecha_srazkySD) + "," +
+                       String(Strecha_windir) + "," +
+                       String(tempPrizemni5cm) + "," +
+                       String(temp5cm) + "," +
+                       String(temp10cm) + "," +
+                       String(temp20cm) + "," +
+                       String(temp50cm) + "," +
+                       String(temp100cm) + "," +
+                       String(napetiVstup) + "\r\n";
+
+  Serial.print("Save data: ");
+  Serial.println(dataMessage);
+  if (appendFile(SD, "/data.txt", dataMessage.c_str()))
   {
-    logNaKartu = true;
-  }
-
-  if ((now.minute() % 5 == 0) && (now.second() == 0) && logNaKartu == true)
-  {
-
-    Serial.println(now.unixtime());
-
-    String dataMessage = String(now.unixtime()) + "," +
-                         String(Plot_tempDS18B20) + "," +
-                         String(Plot_humSHT31) + "," +
-                         String(Plot_barometerBMP180) + "," +
-                         String(Strecha_winspeed) + "," +
-                         String(Strecha_srazky) + "," +
-                         String(Strecha_windir) + "," +
-                         String(tempPrizemni5cm) + "," +
-                         String(temp5cm) + "," +
-                         String(temp10cm) + "," +
-                         String(temp20cm) + "," +
-                         String(temp50cm) + "," +
-                         String(temp100cm) + "," +
-                         String(napetiVstup) + "\r\n";
-    Serial.print("Save data: ");
-    Serial.println(dataMessage);
-    appendFile(SD, "/data.txt", dataMessage.c_str());
-    logNaKartu = false;
+    lastLoggedSlot = currentSlot;
+    Strecha_srazkySD = 0.0f;
   }
 }
 void mqtt()
 {
-  if (novaData == true)
+  if (!novaData || WiFi.status() != WL_CONNECTED)
+    return;
+
+  const bool sendPlot = dataPlot;
+  const bool sendStrecha = dataStrecha;
+
+  if (!client.connected())
   {
-    client.setServer(mqttServer, mqttPort);
-    client.connect("pocasi-loucka.eu", mqttUser, mqttPassword);
-    DynamicJsonDocument JSONencoder(488);
-    char buffer[488];
+    const unsigned long now = millis();
+    if (now - previousMqttAttempt < MQTT_RETRY_INTERVAL_MS)
+      return;
 
-    if (dataPlot == true)
+    previousMqttAttempt = now;
+    if (!client.connect("pocasi-loucka.eu", mqttUser, mqttPassword))
     {
-      JSONencoder["outTemp"] = Plot_tempDS18B20;
-      JSONencoder["outHumidity"] = Plot_humSHT31;
-      JSONencoder["barometer"] = Plot_barometerBMP180;
-      JSONencoder["signal3"] = Plot_signal;
+      Serial.print("MQTT connect failed, state=");
+      Serial.println(client.state());
+      return;
+    }
+  }
 
+  DynamicJsonDocument JSONencoder(512);
+  if (sendPlot)
+  {
+    JSONencoder["outTemp"] = Plot_tempDS18B20;
+    JSONencoder["outHumidity"] = Plot_humSHT31;
+    JSONencoder["barometer"] = Plot_barometerBMP180;
+    JSONencoder["signal3"] = Plot_signal;
+  }
+  if (sendStrecha)
+  {
+    JSONencoder["windSpeed"] = Strecha_winspeed;
+    JSONencoder["rain"] = Strecha_srazky;
+    JSONencoder["windDir"] = Strecha_windir;
+    JSONencoder["signal2"] = Strecha_signal;
+  }
+
+  JSONencoder["supplyVoltage"] = napetiVstup;
+  JSONencoder["proud"] = proud;
+  JSONencoder["prikon"] = prikon;
+  JSONencoder["extraTemp1"] = tempPrizemni5cm;
+  JSONencoder["extraTemp2"] = temp5cm;
+  JSONencoder["soilTemp1"] = temp10cm;
+  JSONencoder["soilTemp2"] = temp20cm;
+  JSONencoder["soilTemp3"] = temp50cm;
+  JSONencoder["soilTemp4"] = temp100cm;
+  JSONencoder["signal1"] = WiFi.RSSI();
+
+  String payload;
+  serializeJson(JSONencoder, payload);
+  Serial.println("Sending message to MQTT topic..");
+  Serial.println(payload);
+
+  if (client.publish("pocasi-loucka.eu", payload.c_str()))
+  {
+    Serial.println("Success sending message");
+    if (sendPlot)
       dataPlot = false;
-    }
-    if (dataStrecha == true)
-    {
-      JSONencoder["windSpeed"] = Strecha_winspeed;
-      JSONencoder["rain"] = Strecha_srazky;
-      JSONencoder["windDir"] = Strecha_windir;
-      JSONencoder["signal2"] = Strecha_signal;
-
+    if (sendStrecha)
       dataStrecha = false;
-    }
-    
-    JSONencoder["supplyVoltage"] = napetiVstup;
-    JSONencoder["proud"] = proud;
-    JSONencoder["prikon"] = prikon;
-
-    JSONencoder["extraTemp1"] = tempPrizemni5cm;
-    JSONencoder["extraTemp2"] = temp5cm;
-    JSONencoder["soilTemp1"] = temp10cm;
-    JSONencoder["soilTemp2"] = temp20cm;
-    JSONencoder["soilTemp3"] = temp50cm;
-    JSONencoder["soilTemp4"] = temp100cm;
-    novaData = false;
-    long rssi = WiFi.RSSI();
-    JSONencoder["signal1"] = rssi;
-    serializeJson(JSONencoder, buffer);
-
-    Serial.println("Sending message to MQTT topic..");
-    Serial.println(buffer);
-
-    if (client.publish("pocasi-loucka.eu", buffer) == true)
-    {
-      Serial.println("Success sending message");
-    }
-    else
-    {
-      Serial.println("Error sending message");
-    }
+    novaData = dataPlot || dataStrecha;
+  }
+  else
+  {
+    Serial.println("Error sending message; keeping data pending");
+    novaData = true;
   }
 }
 
 void loop()
 {
-  INA219napajeni();
-  teplota();
-  //  ntp2rtc();//aktualizace času v RTC
-  logSDCard();
+  const unsigned long now = millis();
+
+  if (now - previousPowerMillis >= POWER_INTERVAL_MS)
+  {
+    previousPowerMillis = now;
+    INA219napajeni();
+  }
+
+  if (now - previousTemperatureMillis >= TEMPERATURE_INTERVAL_MS)
+  {
+    previousTemperatureMillis = now;
+    teplota();
+  }
+
   PrijemDat();
+  logSDCard();
   mqtt();
+  if (client.connected())
+    client.loop();
   WiFi_reconnect();
 }
