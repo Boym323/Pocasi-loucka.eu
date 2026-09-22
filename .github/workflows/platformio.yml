@@ -1,0 +1,38 @@
+name: PlatformIO build
+
+on:
+  push:
+    branches:
+      - master
+      - "fix/**"
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - "Bridge"
+          - "Hlavni jednotka"
+          - "OTA server"
+          - "Senzor plot"
+          - "Senzor strecha"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Prepare credentials
+        run: |
+          cp Config/credentials/credentials.example.h Config/credentials/credentials.h
+
+      - name: Build
+        run: pio run --project-dir "${{ matrix.project }}"
