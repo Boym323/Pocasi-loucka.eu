@@ -31,7 +31,7 @@ float tempBMP180;
 float pressureBMP180;
 float barometerBMP180;
 float tempSHT31;
-int humSHT31;
+float humSHT31;
 int Signal;
 
 Scheduler userScheduler; // to control your personal task
@@ -46,12 +46,28 @@ Task nacteniDatCidla(casNacteniDat * 1000, TASK_FOREVER, []()
                        DeviceAddress Teplota2m = {0x28, 0x04, 0xB5, 0x79, 0xA2, 0x01, 0x03, 0xFB};
                        sensors.setResolution(Teplota2m, 10);
                        sensors.requestTemperatures();
-                       tempDS18B20 = sensors.getTempC(Teplota2m);
-                       tempBMP180 = bmp.readTemperature();
-                       pressureBMP180 = bmp.readPressure() / 100;
-                       barometerBMP180 = bmp.seaLevelForAltitude(ALTITUDE, (bmp.readPressure() / 100)-3);
-                       tempSHT31 = sht31.readTemperature();
-                       humSHT31 = sht31.readHumidity();
+
+                       const float dsTemperature = sensors.getTempC(Teplota2m);
+                       if (dsTemperature > -50.0f && dsTemperature < 70.0f)
+                         tempDS18B20 = dsTemperature;
+
+                       const float bmpTemperature = bmp.readTemperature();
+                       const float pressure = bmp.readPressure() / 100.0f;
+                       if (isfinite(bmpTemperature))
+                         tempBMP180 = bmpTemperature;
+                       if (isfinite(pressure) && pressure > 0.0f)
+                       {
+                         pressureBMP180 = pressure;
+                         barometerBMP180 = bmp.seaLevelForAltitude(ALTITUDE, pressure - 3.0f);
+                       }
+
+                       const float shtTemperature = sht31.readTemperature();
+                       const float humidity = sht31.readHumidity();
+                       if (isfinite(shtTemperature))
+                         tempSHT31 = shtTemperature;
+                       if (isfinite(humidity) && humidity >= 0.0f && humidity <= 100.0f)
+                         humSHT31 = humidity;
+
                        Signal = WiFi.RSSI();
                      });
 
@@ -88,9 +104,11 @@ void setup()
 {
 
   Serial.begin(115200);
-  sht31.begin(0x44);
+  if (!sht31.begin(0x44))
+    Serial.println("SHT31 not found");
   sensors.begin();
-  bmp.begin(BMP280_ADDRESS, BMP280_CHIPID);
+  if (!bmp.begin(BMP280_ADDRESS, BMP280_CHIPID))
+    Serial.println("BMP280 not found");
   /* Default settings from datasheet. */
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
                   Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
