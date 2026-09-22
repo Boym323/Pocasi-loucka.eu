@@ -122,6 +122,7 @@ unsigned long previousMqttAttempt = 0;
 const unsigned long POWER_INTERVAL_MS = 1000;
 const unsigned long TEMPERATURE_INTERVAL_MS = 10000;
 const unsigned long MQTT_RETRY_INTERVAL_MS = 5000;
+const uint16_t MQTT_BUFFER_SIZE = 512;
 String serial2Buffer;
 //-----------Proměnné na data z meshe-----------------------
 String Strecha_kompilace;
@@ -362,6 +363,14 @@ void setup()
   server.begin();
 
   client.setServer(mqttServer, mqttPort);
+  if (!client.setBufferSize(MQTT_BUFFER_SIZE))
+    Serial.println("Failed to allocate MQTT buffer");
+  else
+  {
+    Serial.print("MQTT buffer size: ");
+    Serial.println(client.getBufferSize());
+  }
+
   INA219napajeni();
   teplota();
 }
